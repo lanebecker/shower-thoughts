@@ -1,0 +1,16 @@
+[Unit]
+Description=ShowerThoughts Recorder
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/shower_thoughts/device
+ExecStart=/home/pi/shower_thoughts/device/venv/bin/python recorder.py
+Restart=on-failure
+RestartSec=5
+EnvironmentFile=/home/pi/shower_thoughts/device/.env
+
+[Install]
+WantedBy=multi-user.target
