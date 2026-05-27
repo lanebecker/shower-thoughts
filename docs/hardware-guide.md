@@ -12,7 +12,7 @@
 | 6 | 1000 mAh 3.7V LiPo cell (with JST connector) | Adafruit / eBay | $8 |
 | 7 | RGB LED (common cathode, 5mm) | Any | $0.50 |
 | 8 | 3× 330Ω resistors | Any | $0.10 |
-| 9 | Polycase WP-50 IP65 ABS enclosure | Polycase.com | $12 |
+| 9 | Polycase WP-23 NEMA 4 polycarbonate enclosure | Polycase.com | $12 |
 | 10 | Micro-USB panel mount extension cable | Amazon | $3 |
 | 11 | PTFE acoustic vent membrane (3mm, peel-and-stick) | TE Connectivity / Mouser | $2 |
 | 12 | M3 nylon standoffs + screws | Amazon | $1 |
@@ -83,7 +83,7 @@ Connect the MT3608 input to the LiPo's positive terminal (via the TP4056 output)
 
 ## Enclosure Assembly
 
-**Polycase WP-50** is a 4.4" × 2.8" × 1.6" ABS box rated IP65 (dust-tight, water jet resistant). That's enough for a shower; you don't need IP67/68 unless you're mounting it inside the spray zone.
+**Polycase WP-23** is a 4.1" × 3.2" × 1.9" polycarbonate box rated NEMA 4 (equivalent to IP65/66 — dust-tight and water jet resistant). That's enough for a shower; you don't need IP67/68 unless you're mounting it inside the spray zone.
 
 Assembly order:
 
@@ -95,7 +95,7 @@ Assembly order:
 6. Seal the USB slot edges with clear silicone RTV (let cure 24h before exposing to water)
 7. Mount the Pi on M3 nylon standoffs to the enclosure floor
 8. Tuck the LiPo alongside the Pi; secure with double-sided foam tape
-9. Close the lid — the WP-50's foam gasket handles the waterproofing
+9. Close the lid — the WP-23's foam gasket handles the waterproofing
 
 ### Mounting Options
 
