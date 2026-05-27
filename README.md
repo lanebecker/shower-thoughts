@@ -34,7 +34,7 @@
 | IP67 16mm momentary button | $5 |
 | TP4056 + MT3608 + 1000 mAh LiPo | $12 |
 | RGB LED + resistors | $1 |
-| Polycase WP-50 IP65 enclosure | $12 |
+| Polycase WP-23 NEMA 4 enclosure | $12 |
 | Suction cup or magnetic mount | $3 |
 
 **Total: ~$55** — See [docs/hardware-guide.md](docs/hardware-guide.md) for full BOM, wiring diagram, and enclosure tips.
