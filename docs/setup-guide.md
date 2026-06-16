@@ -299,4 +299,3 @@ Craft has no public REST API, so the adapter bridges via native macOS mechanisms
 - Check backend logs: `uvicorn` prints job progress to stdout
 - Try posting a test job manually: `curl -X POST http://localhost:8000/upload -H "X-Device-Token: <your-token>" -F "audio=@/path/to/test.wav"` (the form field must be `audio` and the file must be a `.wav`)
 - Check adapter-specific env vars are set in `backend/.env`
-```
