@@ -127,13 +127,9 @@ Minimum required configuration:
 AI_PROVIDER=anthropic
 ANTHROPIC_API_KEY=sk-ant-...
 
-# Pick a notes adapter
+# Pick a notes adapter (Apple Notes requires the backend to run on a Mac)
 NOTES_ADAPTER=apple_notes
-APPLE_NOTES_EMAIL=your-address@icloud.com
-SMTP_USER=your@gmail.com
-SMTP_PASS=your-app-password    # Gmail App Password, not your real password
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
+APPLE_NOTES_FOLDER=Shower Thoughts
 ```
 
 See `.env.example` for the full list of variables for all adapters.
@@ -204,12 +200,14 @@ On Linux, create a systemd unit analogous to `device/shower-thoughts.service`.
 
 ### Apple Notes (recommended)
 
-1. In Gmail, go to **Account → Security → App Passwords** and generate a password for "Mail"
-2. Set `NOTES_ADAPTER=apple_notes`, `APPLE_NOTES_STRATEGY=email`
-3. Set `APPLE_NOTES_EMAIL` to your `notes@icloud.com` address (find it in Notes → Preferences → iCloud account)
-4. Set `SMTP_USER`, `SMTP_PASS` (the app password), `SMTP_HOST=smtp.gmail.com`, `SMTP_PORT=587`
+Apple Notes works by driving the Notes app via AppleScript, so **the backend must run on a Mac** signed into iCloud with Notes enabled. (There is no email-to-Apple-Notes address — emailing iCloud does *not* create a note.)
 
-Each note arrives as a new Apple Note in your default account.
+1. Confirm the backend host is a Mac signed into iCloud with the Notes app available
+2. Set `NOTES_ADAPTER=apple_notes`
+3. (Optional) Set `APPLE_NOTES_FOLDER` — defaults to `Shower Thoughts`; the folder is created automatically on first run
+4. The first time the backend creates a note, macOS prompts to let it control Notes — click **OK**. If the backend runs headless under launchd, launch it once interactively first to grant this, or pre-approve it in **System Settings → Privacy & Security → Automation**
+
+Each note arrives as a new Apple Note in the chosen folder of your iCloud account.
 
 ### Notion
 
