@@ -3,7 +3,7 @@
 ## System Diagram
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────┐
 │                   DEVICE (Raspberry Pi Zero 2W)                  │
 │                                                                  │
 │  ┌──────────┐    ┌────────────────┐    ┌──────────────────────┐ │
@@ -15,10 +15,10 @@
 │  │ SPH0645  │───►│  (I2S audio)   │    │  (multipart WAV)     │ │
 │  │   Mic    │    └────────────────┘    └──────────┬───────────┘ │
 │  └──────────┘                                     │             │
-└──────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────┘
                                                     │ WiFi
                                                     ▼
-┌──────────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────────────┐
 │                    BACKEND (FastAPI / Python)                    │
 │                                                                  │
 │  POST /upload ──► save WAV ──► return job_id                    │
@@ -37,7 +37,7 @@
 │       ┌────────────┼────────────┬────────────┬──────────┐       │
 │       ▼            ▼            ▼            ▼          ▼       │
 │  apple_notes    notion      obsidian       email      craft      │
-└──────────────────────────────────────────────────────────────────┘
+└────────────────────────────────────────────────────────┘
 ```
 
 ## Component Reference
@@ -72,7 +72,7 @@ Reads `NOTES_ADAPTER` from the environment and returns the appropriate adapter i
 
 ### `backend/adapters/apple_notes.py`
 
-Two strategies: `email` (SMTP to `notes@icloud.com` — works from any machine) and `applescript` (direct AppleScript subprocess — macOS-only). The email strategy is recommended because it requires zero macOS infrastructure on the server side.
+Drives the macOS Notes app via an AppleScript subprocess (`osascript`), filing each note into the `APPLE_NOTES_FOLDER` iCloud folder (auto-created on first run). **Requires the backend to run on a Mac signed into iCloud.** There is no email-to-Apple-Notes path: Apple offers no inbound notes address, so the old `email` strategy never actually created notes and has been removed. For email delivery to a real inbox, use the `email` adapter instead.
 
 ### `backend/adapters/notion.py`
 
@@ -98,7 +98,7 @@ Craft has no public REST API, so this adapter bridges to it via native mechanism
 6. `main.py` saves the WAV, inserts `{status: "pending"}` into the job store, returns `{job_id: "..."}`
 7. Background coroutine calls `transcriber.transcribe_audio(path)` → Whisper API → transcript string
 8. Background coroutine calls `summarizer.summarize_thought(transcript)` → LLM → `Note`
-9. Background coroutine calls `registry.get_adapter().send(note)` → Apple Notes SMTP
+9. Background coroutine calls `registry.get_adapter().send(note)` → Apple Notes via AppleScript
 10. Job store updated to `{status: "done", note: {...}}`
 11. `recorder.py` receives HTTP 200, LED goes solid green
 
@@ -127,9 +127,7 @@ Craft has no public REST API, so this adapter bridges to it via native mechanism
 | `ANTHROPIC_API_KEY` | ✅ if provider=anthropic | — | Anthropic API key |
 | `OPENAI_API_KEY` | ✅ if provider=openai | — | OpenAI API key |
 | `NOTES_ADAPTER` | ❌ | `apple_notes` | Which adapter to use |
-| `APPLE_NOTES_STRATEGY` | ❌ | `email` | `email` or `applescript` |
-| `APPLE_NOTES_EMAIL` | ✅ if strategy=email | — | Destination `notes@icloud.com` address |
-| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` | ✅ if strategy=email | — | SMTP credentials |
+| `APPLE_NOTES_FOLDER` | ❌ | `Shower Thoughts` | iCloud Notes folder, auto-created if missing (macOS only; backend must run on a Mac) |
 | `NOTION_API_KEY` | ✅ if adapter=notion | — | Notion integration token |
 | `NOTION_DATABASE_ID` | ✅ if adapter=notion | — | Target database ID |
 | `OBSIDIAN_STRATEGY` | ❌ | `file` | `file` or `webhook` |
