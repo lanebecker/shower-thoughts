@@ -180,4 +180,3 @@ shower-thoughts/
 - **Multi-device support** — backend is single-user; no device namespacing on notes
 - **Web review UI** — no way to see or edit a note before it's dispatched
 - **Voice activity detection** — must manually press button; no auto-start on speech
-```
