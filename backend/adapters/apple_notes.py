@@ -1,70 +1,78 @@
 """
-Apple Notes adapter — two strategies:
+Apple Notes adapter (macOS only).
 
-Strategy A (recommended): SMTP → iCloud Mail → Apple Notes
-  Set APPLE_NOTES_EMAIL to your notes@icloud.com address.
+Creates notes directly in Apple Notes by driving the Notes app via AppleScript.
+The backend must run on a Mac that is signed into iCloud with the Notes app
+available.
 
-Strategy B: macOS-only AppleScript.
-  Only works if the backend is running on a Mac.
+IMPORTANT: there is no way to create an Apple Note by sending an email. Apple
+does not offer an email-to-Notes ingestion address (the old MobileMe feature
+was retired years ago). The previous "email" strategy here never actually
+landed notes in Apple Notes. If you want thoughts delivered by email instead,
+use a dedicated email adapter (NOTES_ADAPTER=email) rather than this one.
 """
 
 import os
 import logging
-import smtplib
 import subprocess
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+from html import escape as html_escape
+
 from summarizer import Note
 
 log = logging.getLogger(__name__)
-STRATEGY = os.getenv("APPLE_NOTES_STRATEGY", "email")
+
+# iCloud folder to file thoughts under; auto-created on first run if missing.
+NOTES_FOLDER = os.getenv("APPLE_NOTES_FOLDER", "Shower Thoughts")
 
 
 class AppleNotesAdapter:
+    """Sends a Note to Apple Notes on the local Mac via `osascript`."""
+
     def send(self, note: Note) -> None:
-        if STRATEGY == "applescript":
-            _send_applescript(note)
-        else:
-            _send_email(note)
+        script = _build_script(note.title, _build_html(note), NOTES_FOLDER)
+        result = subprocess.run(
+            ["osascript", "-"],
+            input=script,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            raise RuntimeError(f"AppleScript failed: {result.stderr.strip()}")
+        log.info("Note created in Apple Notes (folder %r): %r", NOTES_FOLDER, note.title)
 
 
-def _send_email(note: Note):
-    smtp_host  = os.getenv("SMTP_HOST", "smtp.gmail.com")
-    smtp_port  = int(os.getenv("SMTP_PORT", "587"))
-    smtp_user  = os.getenv("SMTP_USER")
-    smtp_pass  = os.getenv("SMTP_PASS")
-    dest_email = os.getenv("APPLE_NOTES_EMAIL")
-    if not all([smtp_user, smtp_pass, dest_email]):
-        raise EnvironmentError("Set SMTP_USER, SMTP_PASS, APPLE_NOTES_EMAIL")
-    tags_str = ", ".join(f"#{t}" for t in note.tags)
-    body = f"""🚿 Shower Thought — {note.recorded_at}\n\n{note.summary}\n\n---\n{note.full_text}\n\nTags: {tags_str}"""
-    msg = MIMEMultipart()
-    msg["From"]    = smtp_user
-    msg["To"]      = dest_email
-    msg["Subject"] = f"💡 {note.title}"
-    msg.attach(MIMEText(body, "plain"))
-    with smtplib.SMTP(smtp_host, smtp_port) as server:
-        server.starttls()
-        server.login(smtp_user, smtp_pass)
-        server.sendmail(smtp_user, dest_email, msg.as_string())
-    log.info(f"Note emailed to {dest_email}: '{note.title}'")
+def _build_html(note: Note) -> str:
+    """Apple Notes renders the body as HTML, so emit HTML (not plain text)."""
+    tags = " ".join(f"#{html_escape(t)}" for t in note.tags)
+    parts = [
+        f"<div><b>{html_escape(note.title)}</b></div>",
+        f"<div>\U0001F6BF {html_escape(str(note.recorded_at))}</div>",
+        "<div><br></div>",
+        f"<div>{html_escape(note.summary)}</div>",
+        "<div><br></div>",
+        f"<div>{html_escape(note.full_text)}</div>",
+    ]
+    if tags:
+        parts += ["<div><br></div>", f"<div>{tags}</div>"]
+    return "".join(parts)
 
 
-def _send_applescript(note: Note):
-    tags_str = ", ".join(note.tags)
-    body = f"🚿 {note.recorded_at}\n\n{note.summary}\n\n{note.full_text}\n\nTags: {tags_str}"
-    escaped_title = note.title.replace('"', '\\"')
-    escaped_body  = body.replace('"', '\\"').replace("\n", "\\n")
-    script = f'''
-    tell application "Notes"
-        tell account "iCloud"
-            make new note at folder "Shower Thoughts" with properties {{
-                name: "{escaped_title}", body: "{escaped_body}"
-            }}
-        end tell
+def _osa_quote(s: str) -> str:
+    """Escape a Python string for embedding in an AppleScript double-quoted literal."""
+    return s.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def _build_script(title: str, body_html: str, folder: str) -> str:
+    t = _osa_quote(title)
+    b = _osa_quote(body_html)
+    f = _osa_quote(folder)
+    return f'''
+tell application "Notes"
+    tell account "iCloud"
+        if not (exists folder "{f}") then
+            make new folder with properties {{name:"{f}"}}
+        end if
+        make new note at folder "{f}" with properties {{name:"{t}", body:"{b}"}}
     end tell
-    '''
-    result = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
-    if result.returncode != 0:
-        raise RuntimeError(f"AppleScript failed: {result.stderr}")
-    log.info(f"Note created in Apple Notes: '{note.title}'")
+end tell
+'''
