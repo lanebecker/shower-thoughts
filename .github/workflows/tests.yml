@@ -5,7 +5,7 @@ on:
   pull_request:
 
 jobs:
-  backend:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -19,4 +19,8 @@ jobs:
       - name: Run backend tests
         run: |
           cd backend
+          pytest -q
+      - name: Run device firmware tests
+        run: |
+          cd device
           pytest -q
