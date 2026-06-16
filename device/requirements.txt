@@ -1,0 +1,7 @@
+# Raspberry Pi device firmware dependencies.
+# RPi.GPIO only installs on a Pi; the test suite stubs it (see device/conftest.py).
+pyaudio>=0.2.13
+RPi.GPIO>=0.7.1
+requests>=2.31.0
+python-dotenv>=1.0.0
+smbus2>=0.4.3        # optional low-battery I2C ADC (ADS1115); imported lazily

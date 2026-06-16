@@ -27,9 +27,14 @@ if ! grep -q "googlevoicehat" "$CONFIG"; then
     echo "dtoverlay=googlevoicehat-soundcard" | sudo tee -a "$CONFIG"
 fi
 
+# I2C bus for the optional low-battery monitor (ADS1115). Harmless if unused.
+if ! grep -q "dtparam=i2c_arm=on" "$CONFIG"; then
+    echo "dtparam=i2c_arm=on" | sudo tee -a "$CONFIG"
+fi
+
 python3 -m venv venv
 source venv/bin/activate
-pip install pyaudio RPi.GPIO requests python-dotenv
+pip install -r requirements.txt
 
 if [ ! -f .env ]; then
     cp .env.example .env

@@ -13,6 +13,7 @@ LED status:
   - Solid blue:   Processing (server working on it)
   - Slow blue pulse (idle): Buffered thought(s) waiting to retry
   - Fast red blink: Error
+  - Amber double-blink (idle): Battery low (optional I2C monitor)
 
 Resilience:
   A recorded thought is written to disk before upload. If the upload fails
@@ -60,6 +61,27 @@ MAX_DURATION_S = 300
 RETRY_INTERVAL_S = 60    # how often the background thread retries buffered thoughts
 MAX_BUFFERED     = 50    # keep at most this many buffered WAVs (newest win)
 
+# ── Battery monitor (optional) ──────────────────────────────────────
+# Opt-in low-battery LED via an I2C ADC (ADS1115) reading the LiPo through a
+# resistor divider. Disabled unless BATTERY_MONITOR is truthy, so units without
+# the ADC are unaffected. smbus2 is imported lazily inside the read, so the
+# firmware (and its tests) import fine without the library or the hardware.
+BATTERY_MONITOR          = os.getenv("BATTERY_MONITOR", "").lower() in ("1", "true", "yes")
+BATTERY_LOW_THRESHOLD    = float(os.getenv("BATTERY_LOW_THRESHOLD", "3.5"))   # volts
+BATTERY_CHECK_INTERVAL_S = int(os.getenv("BATTERY_CHECK_INTERVAL_S", "300"))
+BATTERY_I2C_BUS          = int(os.getenv("BATTERY_I2C_BUS", "1"))
+BATTERY_I2C_ADDR         = int(os.getenv("BATTERY_I2C_ADDR", "0x48"), 0)      # ADS1115 default
+BATTERY_ADC_CHANNEL      = int(os.getenv("BATTERY_ADC_CHANNEL", "0"))         # AIN0..AIN3
+BATTERY_DIVIDER_RATIO    = float(os.getenv("BATTERY_DIVIDER_RATIO", "2.0"))   # Vbattery / Vadc
+
+# ADS1115: full-scale range for the gain we set (±4.096 V) over its 15-bit
+# positive code range. Battery volts = raw * (FSR / 32768) * divider ratio.
+_ADS1115_FSR_VOLTS      = 4.096
+_ADS1115_MAX_CODE       = 32768
+_ADS1115_REG_CONVERSION = 0x00
+_ADS1115_REG_CONFIG     = 0x01
+_ADS1115_MUX_SINGLE     = {0: 0x4, 1: 0x5, 2: 0x6, 3: 0x7}  # single-ended AINx
+
 BACKEND_URL    = os.getenv("BACKEND_URL", "http://your-server:8000")
 DEVICE_TOKEN   = os.getenv("DEVICE_TOKEN", "")
 RECORDINGS_DIR = Path("/tmp/shower_thoughts")
@@ -79,6 +101,7 @@ _state      = State.IDLE
 _recording  = False
 _cancel     = False
 _led_thread = None
+_battery_low = False
 
 
 def _led_off():
@@ -118,7 +141,7 @@ def _stop_led_thread():
     _led_thread = None
 
 
-# ── Buffered-upload helpers ────────────────────────────────────────────────
+# ── Buffered-upload helpers ─────────────────────────────────────────
 
 def _pending_wavs():
     """Buffered recordings, oldest first (filename timestamps sort chronologically)."""
@@ -192,6 +215,95 @@ def _retry_loop():
         except Exception as e:
             log.warning(f"Retry pass error: {e}")
         time.sleep(RETRY_INTERVAL_S)
+
+
+# ── Battery monitor helpers ─────────────────────────────────────────
+
+def _battery_voltage_from_raw(raw: int) -> float:
+    """Convert a signed ADS1115 code to battery volts (divider included)."""
+    return raw * (_ADS1115_FSR_VOLTS / _ADS1115_MAX_CODE) * BATTERY_DIVIDER_RATIO
+
+
+def _read_battery_voltage():
+    """Read LiPo voltage via the ADS1115. Returns volts, or None on any failure.
+
+    Any I2C/library problem returns None rather than raising, so a flaky or
+    absent sensor can never take down the recording firmware.
+    """
+    try:
+        from smbus2 import SMBus  # lazy: only needed on a Pi wired to the ADC
+    except ImportError:
+        log.debug("smbus2 not installed; battery monitor inactive")
+        return None
+    mux = _ADS1115_MUX_SINGLE.get(BATTERY_ADC_CHANNEL, 0x4)
+    # OS=1 (start), MUX=channel, PGA=001 (±4.096 V), MODE=1 (single-shot)
+    config_hi = 0x80 | (mux << 4) | (0x1 << 1) | 0x1
+    # DR=100 (128 SPS), comparator disabled (COMP_QUE=11)
+    config_lo = 0x83
+    try:
+        with SMBus(BATTERY_I2C_BUS) as bus:
+            bus.write_i2c_block_data(
+                BATTERY_I2C_ADDR, _ADS1115_REG_CONFIG, [config_hi, config_lo]
+            )
+            time.sleep(0.01)  # ~8 ms conversion at 128 SPS, plus margin
+            data = bus.read_i2c_block_data(
+                BATTERY_I2C_ADDR, _ADS1115_REG_CONVERSION, 2
+            )
+    except Exception as e:  # noqa: BLE001 — never let a sensor fault crash recording
+        log.warning(f"Battery ADC read failed: {e}")
+        return None
+    raw = (data[0] << 8) | data[1]
+    if raw >= 0x8000:  # two's-complement negative (not expected for a battery)
+        raw -= 0x10000
+    return _battery_voltage_from_raw(raw)
+
+
+def _battery_is_low(voltage) -> bool:
+    return voltage is not None and voltage <= BATTERY_LOW_THRESHOLD
+
+
+def _battery_low_cue():
+    """Amber double-blink (red+green) while idle to signal a low battery."""
+    if _state != State.IDLE:
+        return
+    for _ in range(2):
+        _led_solid(r=True, g=True)  # red+green = amber
+        time.sleep(0.15)
+        _led_off()
+        time.sleep(0.15)
+
+
+def _check_battery_once():
+    """Sample the battery once; update _battery_low and cue if low.
+
+    Returns the measured voltage, or None if the read failed.
+    """
+    global _battery_low
+    voltage = _read_battery_voltage()
+    if voltage is None:
+        return None
+    if _battery_is_low(voltage):
+        if not _battery_low:
+            log.warning(f"Battery low: {voltage:.2f} V (<= {BATTERY_LOW_THRESHOLD} V)")
+        _battery_low = True
+        _battery_low_cue()
+    else:
+        if _battery_low:
+            log.info(f"Battery recovered: {voltage:.2f} V")
+        _battery_low = False
+    return voltage
+
+
+def _battery_loop():
+    """Background thread: periodically check the battery and cue when low."""
+    time.sleep(8)  # let the boot animation and first retry pass settle
+    while True:
+        try:
+            if _state == State.IDLE:
+                _check_battery_once()
+        except Exception as e:
+            log.warning(f"Battery check error: {e}")
+        time.sleep(BATTERY_CHECK_INTERVAL_S)
 
 
 def _record_to_file(filepath: Path) -> bool:
@@ -327,6 +439,10 @@ def main():
     if backlog:
         log.info(f"{len(backlog)} buffered thought(s) from a previous session — will retry.")
     threading.Thread(target=_retry_loop, daemon=True).start()
+    if BATTERY_MONITOR:
+        log.info(f"Battery monitor on (low <= {BATTERY_LOW_THRESHOLD} V, every "
+                 f"{BATTERY_CHECK_INTERVAL_S}s).")
+        threading.Thread(target=_battery_loop, daemon=True).start()
     log.info(f"Ready. Backend: {BACKEND_URL}")
     log.info("Press button to record. Long-press to cancel.")
     try:
