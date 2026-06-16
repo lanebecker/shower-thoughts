@@ -44,11 +44,11 @@
 
 ### `device/recorder.py`
 
-The firmware that runs continuously on the Pi. It listens for button presses on GPIO17: a short press starts or stops a recording session; a 3-second long press cancels the current recording without uploading. Audio is captured from the SPH0645 I2S microphone via pyaudio at 16 kHz mono and saved as a WAV file under `/tmp/shower_thoughts/`. On stop, the WAV is multipart-POSTed to the backend. The RGB LED on GPIO22/23/24 gives immediate visual feedback for each state (recording, uploading, success, error, cancellation).
+The firmware that runs continuously on the Pi. It listens for button presses on GPIO17: a short press starts or stops a recording session; a 3-second long press cancels the current recording without uploading. Audio is captured from the SPH0645 I2S microphone via pyaudio at the card's native 48 kHz, downsampled to 16 kHz mono, and saved as a WAV file under `/tmp/shower_thoughts/`. On stop, the WAV is multipart-POSTed to the backend. The RGB LED on GPIO22/23/24 gives immediate visual feedback for each state (recording, uploading, success, error, cancellation).
 
 ### `device/install.sh`
 
-One-shot provisioning script for a fresh Pi OS Lite install. Adds the I2S microphone dtoverlay to `/boot/config.txt`, installs `portaudio19-dev` via apt, creates a Python venv, installs pip dependencies, and registers + enables the `shower-thoughts` systemd service. Run it once; never need to run it again.
+One-shot provisioning script for a fresh Pi OS Lite install. Adds the I2S overlays to `/boot/firmware/config.txt` (Bookworm; falls back to `/boot/config.txt` on older images), installs `portaudio19-dev` via apt, creates a Python venv, installs pip dependencies, and registers + enables the `shower-thoughts` systemd service. Run it once; never need to run it again.
 
 ### `device/shower-thoughts.service`
 

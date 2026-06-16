@@ -51,7 +51,7 @@ sudo bash install.sh
 ```
 
 The script will:
-- Add `dtoverlay=i2s-mems` to `/boot/config.txt`
+- Add the I2S overlays (`dtparam=i2s=on`, `dtoverlay=i2s-mmap`, `dtoverlay=googlevoicehat-soundcard`) to `/boot/firmware/config.txt` (or `/boot/config.txt` on pre-Bookworm images)
 - Install `portaudio19-dev` via apt
 - Create a Python venv at `device/venv/`
 - Install pip dependencies
@@ -76,13 +76,14 @@ After reboot, verify the I2S mic is recognized:
 
 ```bash
 arecord -l
-# Should show: card 0: sndrpisimplecar [snd_rpi_simple_card], device 0: simple-card_codec_link
+# Should show: card 0: sndrpigooglevoi [snd_rpi_googlevoicehat_soundcar], device 0: ...
 ```
 
 Test a recording:
 
 ```bash
-arecord -D hw:0 -f S16_LE -r 16000 -d 5 /tmp/test.wav
+# The card runs at a fixed 48 kHz; plughw lets ALSA resample to 16 kHz for this test.
+arecord -D plughw:0 -c1 -f S16_LE -r 16000 -d 5 /tmp/test.wav
 aplay /tmp/test.wav
 # You should hear yourself speak
 ```
@@ -257,7 +258,7 @@ Craft has no public REST API, so the adapter bridges via native macOS mechanisms
 
 ### No audio device found (`arecord -l` shows nothing)
 
-- Check that `dtoverlay=i2s-mems` is in `/boot/config.txt` (the installer adds it, but only takes effect after reboot)
+- Check that `dtoverlay=googlevoicehat-soundcard` is in `/boot/firmware/config.txt` (or `/boot/config.txt` on pre-Bookworm; the installer adds it, but it only takes effect after reboot)
 - Verify SPH0645 BCLK/LRCLK/DATA wires are in the right GPIO pins
 - Run `dmesg | grep snd` to see if the driver loaded
 
