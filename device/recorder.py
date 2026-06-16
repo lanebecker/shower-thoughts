@@ -17,6 +17,7 @@ LED status:
 import os
 import time
 import wave
+import audioop
 import threading
 import logging
 import requests
@@ -39,7 +40,10 @@ LED_RED    = 22
 LED_GREEN  = 23
 LED_BLUE   = 24
 
-SAMPLE_RATE    = 16000
+# The googlevoicehat-soundcard overlay used for the SPH0645 runs at a fixed
+# 48 kHz, so capture at the native rate and downsample to 16 kHz for upload.
+CAPTURE_RATE   = 48000
+SAMPLE_RATE    = 16000   # target rate written to the WAV / sent to Whisper
 CHANNELS       = 1
 SAMPLE_WIDTH   = 2
 CHUNK_SIZE     = 1024
@@ -113,7 +117,7 @@ def _record_to_file(filepath: Path) -> bool:
         pa.terminate()
         return False
     stream = pa.open(
-        format=pyaudio.paInt16, channels=CHANNELS, rate=SAMPLE_RATE,
+        format=pyaudio.paInt16, channels=CHANNELS, rate=CAPTURE_RATE,
         input=True, input_device_index=device_index, frames_per_buffer=CHUNK_SIZE,
     )
     frames = []
@@ -132,11 +136,17 @@ def _record_to_file(filepath: Path) -> bool:
     if _cancel:
         log.info("Recording cancelled")
         return False
+    # Downsample from the card's native capture rate to the target rate.
+    # (audioop is in the stdlib through Python 3.12; if you move to 3.13+,
+    # swap this for a resampler such as soxr or scipy.signal.resample_poly.)
+    raw = b"".join(frames)
+    if CAPTURE_RATE != SAMPLE_RATE:
+        raw, _ = audioop.ratecv(raw, SAMPLE_WIDTH, CHANNELS, CAPTURE_RATE, SAMPLE_RATE, None)
     with wave.open(str(filepath), "wb") as wf:
         wf.setnchannels(CHANNELS)
         wf.setsampwidth(SAMPLE_WIDTH)
         wf.setframerate(SAMPLE_RATE)
-        wf.writeframes(b"".join(frames))
+        wf.writeframes(raw)
     duration = time.time() - start_time
     size_kb = filepath.stat().st_size / 1024
     log.info(f"Saved {duration:.1f}s recording ({size_kb:.1f} KB) → {filepath}")

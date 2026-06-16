@@ -8,11 +8,23 @@ echo "🚿 ShowerThoughts Device Setup"
 sudo apt update
 sudo apt install -y python3-pip python3-venv portaudio19-dev
 
-if ! grep -q "dtoverlay=i2s-mmap" /boot/config.txt; then
-    echo "dtoverlay=i2s-mmap" | sudo tee -a /boot/config.txt
+# Raspberry Pi OS Bookworm (2023+) moved the boot config to /boot/firmware/config.txt.
+# Prefer the new path; fall back to /boot/config.txt on older images.
+if [ -f /boot/firmware/config.txt ]; then
+    CONFIG=/boot/firmware/config.txt
+else
+    CONFIG=/boot/config.txt
 fi
-if ! grep -q "googlevoicehat" /boot/config.txt; then
-    echo "dtoverlay=googlevoicehat-soundcard" | sudo tee -a /boot/config.txt
+echo "Using boot config: $CONFIG"
+
+if ! grep -q "dtparam=i2s=on" "$CONFIG"; then
+    echo "dtparam=i2s=on" | sudo tee -a "$CONFIG"
+fi
+if ! grep -q "dtoverlay=i2s-mmap" "$CONFIG"; then
+    echo "dtoverlay=i2s-mmap" | sudo tee -a "$CONFIG"
+fi
+if ! grep -q "googlevoicehat" "$CONFIG"; then
+    echo "dtoverlay=googlevoicehat-soundcard" | sudo tee -a "$CONFIG"
 fi
 
 python3 -m venv venv
