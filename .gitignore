@@ -11,6 +11,9 @@ build/
 # Env files — never commit secrets
 .env
 !.env.example
+# ESP32 device config holds Wi-Fi creds + device token — keep only the example
+config.txt
+!config.example.txt
 
 # Audio recordings — can be large
 /tmp/shower_thoughts/

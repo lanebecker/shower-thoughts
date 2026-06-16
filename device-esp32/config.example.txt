@@ -1,0 +1,17 @@
+# ShowerThoughts ESP32 device config — copy to `config.txt` on the device and edit.
+# Format: KEY=VALUE, one per line. '#' starts a whole-line comment. Values may be
+# quoted; quotes are stripped. See config.py for all keys and defaults.
+
+WIFI_SSID=your-network
+WIFI_PASSWORD=your-password
+BACKEND_URL=http://10.0.1.5:8000
+DEVICE_TOKEN=your-secret-token
+
+# Optional tuning (defaults shown):
+# SAMPLE_RATE=16000
+# MAX_BUFFERED=50
+# MAX_DURATION_S=300
+# IDLE_SLEEP_S=60               # phase 2: idle seconds before deep sleep
+# BATTERY_LOW_THRESHOLD=3.5     # phase 2: volts for the amber low-battery cue
+# BATTERY_ADC_PIN=              # phase 2: ADC pin reading the LiPo (empty = off)
+# BATTERY_DIVIDER_RATIO=2.0
