@@ -13,6 +13,7 @@ import os
 import re
 import logging
 import requests
+import urllib3
 from pathlib import Path
 from summarizer import Note
 
@@ -20,6 +21,11 @@ log = logging.getLogger(__name__)
 
 STRATEGY        = os.getenv("OBSIDIAN_STRATEGY", "file")
 OBSIDIAN_FOLDER = os.getenv("OBSIDIAN_FOLDER", "Shower Thoughts")
+
+# The Obsidian Local REST API plugin serves HTTPS with a self-signed certificate,
+# so the webhook call below uses verify=False. Silence the resulting urllib3
+# warning since this is a trusted loopback/LAN endpoint, not a public URL.
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 
 class ObsidianAdapter:

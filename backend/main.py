@@ -33,14 +33,37 @@ app = FastAPI(title="ShowerThoughts", version="0.1.0")
 
 UPLOAD_DIR   = Path(os.getenv("UPLOAD_DIR", "/tmp/shower_uploads"))
 DEVICE_TOKEN = os.getenv("DEVICE_TOKEN", "")
+# Uploads are authenticated with a shared DEVICE_TOKEN. If it's unset we reject
+# requests by default, so an unconfigured server isn't left wide open on the LAN
+# (anyone could POST audio and burn your API credits). Set ALLOW_NO_DEVICE_TOKEN=1
+# only for throwaway local testing.
+ALLOW_NO_DEVICE_TOKEN = os.getenv("ALLOW_NO_DEVICE_TOKEN", "").lower() in ("1", "true", "yes")
 UPLOAD_DIR.mkdir(exist_ok=True)
 
+if not DEVICE_TOKEN:
+    if ALLOW_NO_DEVICE_TOKEN:
+        log.warning("DEVICE_TOKEN is not set and ALLOW_NO_DEVICE_TOKEN is enabled — "
+                    "uploads are UNAUTHENTICATED. Don't expose this on an untrusted network.")
+    else:
+        log.warning("DEVICE_TOKEN is not set — uploads will be rejected with 503. "
+                    "Set DEVICE_TOKEN (or ALLOW_NO_DEVICE_TOKEN=1 for local testing).")
+
+# NOTE: job state is an in-memory dict, so run a SINGLE uvicorn worker. With
+# multiple workers each process keeps its own _jobs, so GET /job/{id} can miss a
+# job handled by another worker, and a restart drops in-flight jobs. A persistent
+# SQLite job store is planned for v0.2.
 _jobs: dict[str, dict] = {}
 
 
 def _check_auth(x_device_token: Optional[str]):
     if not DEVICE_TOKEN:
-        return
+        if ALLOW_NO_DEVICE_TOKEN:
+            return
+        raise HTTPException(
+            status_code=503,
+            detail="Server has no DEVICE_TOKEN configured. Set DEVICE_TOKEN "
+                   "(or ALLOW_NO_DEVICE_TOKEN=1 for local testing).",
+        )
     if x_device_token != DEVICE_TOKEN:
         raise HTTPException(status_code=401, detail="Invalid device token")
 
