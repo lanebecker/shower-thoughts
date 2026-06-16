@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+Changes on `main` since the v0.1.1 tag (not yet released — promote to v0.1.2 when tagging).
+
+### Added
+
+- **Backend test suite** (`backend/tests/`: `test_main`, `test_summarizer`, `test_registry`, `test_adapters`, `test_apple_notes_escaping`) plus `requirements-dev.txt`, and **device-firmware tests** (`device/tests/test_recorder.py` with `device/conftest.py` stubbing `RPi.GPIO`/`pyaudio`) — 37 tests, every external call mocked.
+- **CI** (`.github/workflows/tests.yml`) — runs both suites on every push and PR.
+- **`device/firstrun.sh`** — a guided, interactive hardware bring-up check (mic, button, LED, backend reachability, end-to-end).
+
+### Fixed
+
+- **Systemd unit** (`device/shower-thoughts.service`) paths corrected from `shower_thoughts` to `shower-thoughts` to match the clone directory, so the service actually starts.
+
+### Changed
+
+- Expanded `CLAUDE.md` with an "Invariants — do not regress" section and Testing / test-discipline notes (kept mirrored to the local project file).
+
 ## [0.1.1] - 2026-06-15
 
 Hardening and correctness pass over the v0.1.0 MVP: the core loop now survives a
