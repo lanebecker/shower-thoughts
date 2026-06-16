@@ -47,9 +47,9 @@ sudo journalctl -u shower-thoughts -f
 ### Tests
 
 ```bash
-# From repo root — install runtime + dev deps, then run the suite
+# From repo root — install runtime + dev deps, then run both suites
 pip install -r backend/requirements.txt -r requirements-dev.txt
-cd backend && pytest
+(cd backend && pytest) && (cd device && pytest)
 ```
 
 ---
@@ -84,7 +84,7 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────┐
 │                        DEVICE (Pi Zero 2W)                  │
 │                                                             │
 │   [Button] ──► [recorder.py] ──► WAV file ──► HTTP POST    │
@@ -162,7 +162,7 @@ The backend has a pytest suite in `backend/tests/` (`test_main.py`, `test_summar
 
 To add a test for a new adapter, mock `requests.post` (or the relevant HTTP call) and assert the payload shape.
 
-There are no device-side unit tests yet; test `recorder.py` manually on the Pi with a real button press and watch `journalctl`.
+The device firmware is also unit-tested in `device/tests/` (`test_recorder.py`, with `device/conftest.py` stubbing `RPi.GPIO`/`pyaudio`): buffer cap, pending-WAV ordering, retry-flush order + stop-on-failure, and `_post_wav` success/failure. Run with `cd device && pytest`; CI runs both suites. For hardware bring-up, run `bash device/firstrun.sh` on the Pi — a guided walk through the prototype checklist (mic, button, LED, backend reachability, end-to-end).
 
 ---
 
