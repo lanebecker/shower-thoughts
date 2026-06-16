@@ -160,6 +160,46 @@ With an ESP32 you'd need to rewrite the firmware in MicroPython or C, implement 
 
 An ESP32-S3-DevKitC-1 (N16R8 variant) with the INMP441 I2S mic breakout is the recommended ESP32 combination.
 
+### ESP32-S3 wiring (v0.3.0)
+
+The firmware in [`../device-esp32/`](../device-esp32/) targets the
+ESP32-S3-DevKitC-1 N16R8 with an INMP441 I2S mic. Default GPIO assignments below
+are kept in sync with the constants at the top of `recorder.py` (I2S pins) and
+`main.py` (button, LED) — change them in one place and mirror here.
+
+```
+INMP441 (I2S mic)    ESP32-S3 GPIO
+─────────────────    ─────────────
+VDD                  3V3
+GND                  GND
+SD  (data out)       GPIO11
+SCK (bit clock)      GPIO12
+WS  (word select)    GPIO13
+L/R                  GND          (selects the left channel)
+
+Button               GPIO14  →  GND      (active-low; firmware enables a pull-up)
+                     ⚠ must be an RTC GPIO (0–21) so deep sleep can wake on a press
+
+RGB LED (common cathode)
+Red   anode  → 330Ω → GPIO4
+Green anode  → 330Ω → GPIO5
+Blue  anode  → 330Ω → GPIO6
+Common cathode      → GND
+
+Battery sense (optional, Phase 2)
+LiPo+ → 100kΩ → GPIO1 (ADC1) → 100kΩ → GND     (divider ratio 2.0)
+  set BATTERY_ADC_PIN=1 in config.txt; the ESP32 ADC reads it directly (no ADS1115)
+```
+
+Notes:
+- **ADC1 pins** on the S3 are GPIO1–GPIO10; the battery divider must feed one of
+  those. The divider halves the 4.2 V max LiPo to ~2.1 V, within the ADC range.
+- **Power** is a bench decision: the safe default is to keep the same TP4056 +
+  MT3608-to-5 V path the Pi uses and feed the board's 5 V pin (the onboard
+  regulator then makes a clean 3.3 V). Powering a bare module's 3V3 rail directly
+  from the LiPo is possible but marginal as the cell sags — settle this when you
+  have the board in hand. **LiPo only; never mains in a shower.**
+
 ---
 
 ## v0.1 Prototype Checklist

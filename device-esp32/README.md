@@ -4,10 +4,10 @@ MicroPython firmware for the ESP32-S3 port. Goal: feature parity with the Pi
 firmware in [`../device/`](../device/) plus deep-sleep battery life. See the full
 plan in [`../docs/esp32-port-plan.md`](../docs/esp32-port-plan.md).
 
-> **Status:** Phase 1 logic modules + host tests are landing first (hardware-
-> independent, so they can be built and verified before the board arrives). The
-> on-device pieces (I2S capture, Wi-Fi, real upload, deep sleep) come during bench
-> bring-up.
+> **Status:** All hardware-independent logic for Phase 1 *and* Phase 2 is built
+> and host-tested (34 tests), and the on-device modules (`recorder.py`, `main.py`)
+> are drafted as flash-ready skeletons. What's left is bench bring-up once the
+> board arrives: verify I2S capture, Wi-Fi, real upload, and deep-sleep/wake.
 
 ## Modules
 
@@ -15,11 +15,15 @@ plan in [`../docs/esp32-port-plan.md`](../docs/esp32-port-plan.md).
 |------|------|-----------------|
 | `wavfile.py` | Build the 44-byte PCM WAV header | ✅ |
 | `buffer.py` | Pending-WAV listing, newest-N cap, oldest-first order | ✅ |
-| `uploader.py` | Hand-built `multipart/form-data` body (`build_multipart`) + `post_wav` | ✅ body builder (POST is on-device) |
+| `uploader.py` | Hand-built `multipart/form-data` body + `post_wav` | ✅ body builder (POST on-device) |
 | `config.py` | Parse `KEY=VALUE` device config | ✅ |
-| `leds.py` | RGB state table (`levels`/`blink_interval`) + `LedController` | ✅ tables (controller is on-device) |
-| `recorder.py` | I2S capture → WAV *(added during bench bring-up)* | — |
-| `main.py` | Boot, Wi-Fi, button/LED state machine *(added during bench bring-up)* | — |
+| `leds.py` | RGB state table + `LedController` | ✅ table (controller on-device) |
+| `button.py` | Pure press classifier (short / long / none) | ✅ |
+| `power.py` | Deep-sleep / retry planning (Phase 2) | ✅ |
+| `battery.py` | LiPo ADC voltage + low threshold (Phase 2) | ✅ |
+| `rtcstate.py` | Encode/decode small state across deep sleep (Phase 2) | ✅ |
+| `recorder.py` | I2S capture → WAV *(skeleton; bench-verify)* | — (hardware) |
+| `main.py` | Boot, Wi-Fi, button/LED state machine, deep sleep *(skeleton; bench-verify)* | — (hardware) |
 
 ## Tests (run on any machine, no board needed)
 

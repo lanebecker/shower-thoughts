@@ -21,7 +21,9 @@ DEFAULTS = {
     "SAMPLE_RATE": "16000",
     "MAX_BUFFERED": "50",
     "MAX_DURATION_S": "300",
-    "IDLE_SLEEP_S": "60",          # how long awake-and-idle before deep sleep (phase 2)
+    "IDLE_SLEEP_S": "0",           # idle seconds before deep sleep; 0 = always-on (Phase 2 opt-in)
+    "RETRY_INTERVAL_S": "0",       # >0 + TIMER_WAKE: periodic wake to retry a backlog
+    "TIMER_WAKE": "",              # "1" to enable timed wake-to-retry while a backlog exists
     "BATTERY_LOW_THRESHOLD": "3.5",
     "BATTERY_ADC_PIN": "",         # empty = battery monitor disabled
     "BATTERY_DIVIDER_RATIO": "2.0",

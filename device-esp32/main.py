@@ -1,17 +1,23 @@
 """
-ShowerThoughts ESP32-S3 firmware — entry point. Phase 1: always-on.
+ShowerThoughts ESP32-S3 firmware — entry point.
 
 HARDWARE MODULE — bench-tested only. Wires the host-tested logic (config, buffer,
-uploader, leds) to the on-device pieces (Wi-Fi, button, I2S recorder). Phase 1
-stays awake the whole time; deep sleep + wake-on-button arrive in Phase 2.
+uploader, leds, button, power, battery, rtcstate) to the on-device pieces (Wi-Fi,
+GPIO, I2S recorder, deep sleep).
 
 Button UX (matches the Pi firmware):
   - short press while idle       -> start recording
   - short press while recording  -> stop + upload
   - long press (3 s)             -> cancel (no upload)
 
-Config lives in a `config.txt` (KEY=VALUE) on the device filesystem; see
-config.py for keys/defaults. Copy config.example.txt to config.txt and edit.
+Power (Phase 2, opt-in): with IDLE_SLEEP_S > 0 the device deep-sleeps after being
+idle that long and wakes on a button press (~µA standby). machine.deepsleep()
+resets the chip, so on wake main() re-runs from the top — it flushes any backlog
+first, then waits for input. Default IDLE_SLEEP_S=0 keeps it always-on until deep
+sleep is validated at the bench.
+
+Config lives in `config.txt` (KEY=VALUE) on the device filesystem; copy
+`config.example.txt` to `config.txt` and edit. See config.py for keys/defaults.
 """
 
 import os
@@ -21,7 +27,11 @@ from machine import Pin
 
 import config as config_mod
 import buffer as buf
+import button as button_logic
+import battery
 import leds
+import power
+import rtcstate
 import uploader
 import recorder
 
@@ -29,8 +39,7 @@ CONFIG_PATH = "config.txt"
 RECORDINGS_DIR = "/recordings"
 
 # GPIO assignments (mirror docs/hardware-guide.md).
-# NOTE: BUTTON_PIN must be an RTC GPIO (0-21 on the S3) so Phase 2 can wake from
-# deep sleep on a press. Pick accordingly before soldering.
+# NOTE: BUTTON_PIN must be an RTC GPIO (0-21 on the S3) so deep-sleep wake works.
 BUTTON_PIN = 14
 LED_RED_PIN = 4
 LED_GREEN_PIN = 5
@@ -38,6 +47,9 @@ LED_BLUE_PIN = 6
 
 LONG_PRESS_S = 3.0
 DEBOUNCE_S = 0.05
+BATTERY_CHECK_INTERVAL_S = 300
+
+_last_battery_check = 0
 
 
 class Button:
@@ -50,19 +62,27 @@ class Button:
         return self._pin.value() == 0
 
 
-def classify_press(button):
-    """Block until the in-progress press resolves; return 'short', 'long', or None."""
+def classify_press(btn):
+    """Block until the in-progress press resolves; return 'short', 'long', or None.
+
+    The decision itself lives in the host-tested button.classify; this just samples
+    the real pin and feeds it elapsed hold time.
+    """
     time.sleep(DEBOUNCE_S)
-    if not button.pressed():
+    if not btn.pressed():
         return None
     t0 = time.time()
-    while button.pressed():
-        if time.time() - t0 >= LONG_PRESS_S:
-            while button.pressed():           # wait for release so it fires once
+    while True:
+        kind = button_logic.classify(
+            time.time() - t0, released=not btn.pressed(), long_press_s=LONG_PRESS_S
+        )
+        if kind == "long":
+            while btn.pressed():            # drain the hold so it fires once
                 time.sleep(0.02)
             return "long"
+        if kind == "short":
+            return "short"
         time.sleep(0.02)
-    return "short"
 
 
 def ensure_dir(path):
@@ -100,7 +120,7 @@ def _timestamp():
 
 
 def _send(path, name, cfg):
-    """Upload one WAV; delete on success. Returns True on success."""
+    """Upload one WAV; delete on success. Returns the job_id."""
     with open(path, "rb") as f:
         data = f.read()          # PSRAM has room; stream from flash if clips grow
     job = uploader.post_wav(
@@ -122,16 +142,14 @@ def flush_pending(cfg):
             break   # backend still unreachable — leave the rest for next time
 
 
-def record_and_upload(button, led, cfg):
+def record_and_upload(btn, led, cfg):
     led.set("recording")
     cancelled = {"flag": False}
 
     def keep_going():
-        # Polled between audio blocks. A press ends the recording; a long hold
-        # cancels it. (Classifying the press briefly pauses capture — fine for a
-        # short tap; revisit at the bench if it clips audio.)
-        if button.pressed():
-            if classify_press(button) == "long":
+        # Polled between audio blocks. A press ends recording; a long hold cancels.
+        if btn.pressed():
+            if classify_press(btn) == "long":
                 cancelled["flag"] = True
             return False
         return True
@@ -161,9 +179,58 @@ def record_and_upload(button, led, cfg):
         led.set("done"); time.sleep(2); led.set("off")
         flush_pending(cfg)                       # opportunistically clear backlog
     except Exception:
-        # Thought is safely on flash; the idle loop will retry it later.
+        # Thought is safely on flash; the idle loop / next wake will retry it.
         led.set("error"); time.sleep(1)
         led.set("buffered"); time.sleep(0.4); led.set("off")
+
+
+def _battery_adc(cfg):
+    """Build an ADC for the battery pin, or None if the monitor is disabled."""
+    pin = cfg["BATTERY_ADC_PIN"]
+    if not pin:
+        return None
+    try:
+        from machine import ADC, Pin as _Pin
+        adc = ADC(_Pin(int(pin)))
+        try:
+            adc.atten(ADC.ATTN_11DB)   # widen the input range toward ~3.3 V
+        except Exception:
+            pass
+        return adc
+    except Exception:
+        return None
+
+
+def maybe_check_battery(adc, cfg, led):
+    """Throttled low-battery check; flashes the amber cue when low."""
+    global _last_battery_check
+    if adc is None:
+        return
+    now = time.time()
+    if now - _last_battery_check < BATTERY_CHECK_INTERVAL_S:
+        return
+    _last_battery_check = now
+    v = battery.read_voltage(adc, config_mod.as_float(cfg, "BATTERY_DIVIDER_RATIO"))
+    if battery.is_low(v, config_mod.as_float(cfg, "BATTERY_LOW_THRESHOLD")):
+        led.set("low_battery"); time.sleep(0.3); led.set("off")
+
+
+def go_to_sleep(cfg, led, has_backlog):
+    """Configure button wake and deep-sleep (Phase 2). Resets on wake."""
+    import machine
+    import esp32
+    led.set("off")
+    # Wake when the (active-low) button goes LOW. BUTTON_PIN must be an RTC GPIO.
+    esp32.wake_on_ext0(pin=Pin(BUTTON_PIN), level=esp32.WAKEUP_ALL_LOW)
+    ms = power.sleep_duration_ms(
+        has_backlog,
+        timer_wake_enabled=cfg["TIMER_WAKE"] in ("1", "true", "yes"),
+        retry_interval_s=config_mod.as_int(cfg, "RETRY_INTERVAL_S"),
+    )
+    if ms:
+        machine.deepsleep(ms)
+    else:
+        machine.deepsleep()              # until a button press
 
 
 def boot_animation(led):
@@ -188,14 +255,26 @@ def main():
         led.set("error"); time.sleep(1); led.set("off")
 
     button = Button(BUTTON_PIN)
+    adc = _battery_adc(cfg)
+
+    flush_pending(cfg)                  # on every boot/wake, clear backlog first
+    maybe_check_battery(adc, cfg, led)
+
+    idle_timeout = config_mod.as_int(cfg, "IDLE_SLEEP_S")
+    last_activity = time.time()
 
     while True:
         if button.pressed():
             if classify_press(button) == "short":
                 record_and_upload(button, led, cfg)
             # a long press while idle is ignored (matches the Pi)
-        elif buf.pending_wavs(RECORDINGS_DIR):
-            flush_pending(cfg)
+            last_activity = time.time()
+        else:
+            if buf.pending_wavs(RECORDINGS_DIR):
+                flush_pending(cfg)
+            maybe_check_battery(adc, cfg, led)
+            if power.should_enter_sleep(time.time() - last_activity, idle_timeout):
+                go_to_sleep(cfg, led, bool(buf.pending_wavs(RECORDINGS_DIR)))
         time.sleep(0.05)
 
 

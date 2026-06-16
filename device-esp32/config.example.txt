@@ -11,7 +11,9 @@ DEVICE_TOKEN=your-secret-token
 # SAMPLE_RATE=16000
 # MAX_BUFFERED=50
 # MAX_DURATION_S=300
-# IDLE_SLEEP_S=60               # phase 2: idle seconds before deep sleep
+# IDLE_SLEEP_S=0                # phase 2: idle seconds before deep sleep; 0 = always-on
+# RETRY_INTERVAL_S=0            # phase 2: with TIMER_WAKE, wake this often to retry a backlog
+# TIMER_WAKE=                   # phase 2: "1" enables timed wake-to-retry (costs battery)
 # BATTERY_LOW_THRESHOLD=3.5     # phase 2: volts for the amber low-battery cue
 # BATTERY_ADC_PIN=              # phase 2: ADC pin reading the LiPo (empty = off)
 # BATTERY_DIVIDER_RATIO=2.0
