@@ -47,10 +47,9 @@ sudo journalctl -u shower-thoughts -f
 ### Tests
 
 ```bash
-# From repo root
-cd backend
-pip install pytest
-pytest tests/
+# From repo root — install runtime + dev deps, then run the suite
+pip install -r backend/requirements.txt -r requirements-dev.txt
+cd backend && pytest
 ```
 
 ---
@@ -157,9 +156,13 @@ Deliberate decisions from the v0.1.1 hardening pass. Changing any of them reintr
 
 ## Testing
 
-Unit tests live in `backend/tests/`. To add a test for a new adapter, mock `requests.post` (or the relevant HTTP call) and assert the payload shape.
+The backend has a pytest suite in `backend/tests/` (`test_main.py`, `test_summarizer.py`, `test_registry.py`, `test_adapters.py`, with `backend/conftest.py` supplying dummy API keys). Every external call (OpenAI/Anthropic, `subprocess`, `requests`, `smtplib`) is mocked, so it needs no real credentials or hardware. Run it with `pip install -r backend/requirements.txt -r requirements-dev.txt && cd backend && pytest`. CI runs it on every push (`.github/workflows/tests.yml`).
 
-There are no device-side unit tests; test `recorder.py` manually on the Pi with a real button press and watch `journalctl`.
+**Test discipline (do not skip):** any change to backend behavior must add or update the relevant tests *in the same change*, and the full suite must pass before and after. A new endpoint, module, or adapter needs new tests — e.g. a new adapter gets a test mirroring the existing ones: mock its I/O, assert the payload shape and the missing-env error. Don't push code with red or missing tests.
+
+To add a test for a new adapter, mock `requests.post` (or the relevant HTTP call) and assert the payload shape.
+
+There are no device-side unit tests yet; test `recorder.py` manually on the Pi with a real button press and watch `journalctl`.
 
 ---
 
