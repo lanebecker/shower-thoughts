@@ -1,6 +1,6 @@
 # 🚿 ShowerThoughts
 
-[![version](https://img.shields.io/badge/version-0.1.0-blueviolet)](VERSION)
+[![version](https://img.shields.io/badge/version-0.1.1-blueviolet)](VERSION)
 
 > Press a button. Record your idea. It lands in your notes app, transcribed and summarized, by the time you dry off.
 
