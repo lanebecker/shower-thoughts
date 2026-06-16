@@ -5,7 +5,7 @@ firmware in [`../device/`](../device/) plus deep-sleep battery life. See the ful
 plan in [`../docs/esp32-port-plan.md`](../docs/esp32-port-plan.md).
 
 > **Status:** All hardware-independent logic for Phase 1 *and* Phase 2 is built
-> and host-tested (34 tests), and the on-device modules (`recorder.py`, `main.py`)
+> and host-tested (43 tests), and the on-device modules (`recorder.py`, `main.py`)
 > are drafted as flash-ready skeletons. What's left is bench bring-up once the
 > board arrives: verify I2S capture, Wi-Fi, real upload, and deep-sleep/wake.
 
@@ -14,6 +14,7 @@ plan in [`../docs/esp32-port-plan.md`](../docs/esp32-port-plan.md).
 | File | Role | Tested on host? |
 |------|------|-----------------|
 | `wavfile.py` | Build the 44-byte PCM WAV header | ✅ |
+| `audio.py` | 32-bit I2S frame → 16-bit PCM (INMP441 top-16-bits) | ✅ |
 | `buffer.py` | Pending-WAV listing, newest-N cap, oldest-first order | ✅ |
 | `uploader.py` | Hand-built `multipart/form-data` body + `post_wav` | ✅ body builder (POST on-device) |
 | `config.py` | Parse `KEY=VALUE` device config | ✅ |

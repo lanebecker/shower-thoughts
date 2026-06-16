@@ -177,8 +177,10 @@ SCK (bit clock)      GPIO12
 WS  (word select)    GPIO13
 L/R                  GND          (selects the left channel)
 
-Button               GPIO14  →  GND      (active-low; firmware enables a pull-up)
-                     ⚠ must be an RTC GPIO (0–21) so deep sleep can wake on a press
+Button               GPIO14  →  GND      (active-low)
+                     ⚠ must be an RTC GPIO (0–21) for deep-sleep wake, AND needs an
+                       external ~100kΩ pull-up to 3V3 — the internal pull-up is
+                       powered down in deep sleep, so without it wake is unreliable
 
 RGB LED (common cathode)
 Red   anode  → 330Ω → GPIO4
@@ -193,7 +195,11 @@ LiPo+ → 100kΩ → GPIO1 (ADC1) → 100kΩ → GND     (divider ratio 2.0)
 
 Notes:
 - **ADC1 pins** on the S3 are GPIO1–GPIO10; the battery divider must feed one of
-  those. The divider halves the 4.2 V max LiPo to ~2.1 V, within the ADC range.
+  those. The divider halves the 4.2 V max LiPo to ~2.1 V. The S3 ADC is non-linear
+  near the top of its range and `ADC.read_uv()` needs a calibration-enabled
+  MicroPython build, so a full-charge reading is approximate — but the low-battery
+  *cue* (threshold 3.5 V → ~1.75 V at the pin) sits in the accurate region, which
+  is what matters for the warning.
 - **Power** is a bench decision: the safe default is to keep the same TP4056 +
   MT3608-to-5 V path the Pi uses and feed the board's 5 V pin (the onboard
   regulator then makes a clean 3.3 V). Powering a bare module's 3V3 rail directly

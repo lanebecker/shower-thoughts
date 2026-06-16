@@ -33,3 +33,17 @@ def test_typed_coercion():
     cfg = config.parse_config("MAX_BUFFERED=10\nBATTERY_LOW_THRESHOLD=3.6")
     assert config.as_int(cfg, "MAX_BUFFERED") == 10
     assert config.as_float(cfg, "BATTERY_LOW_THRESHOLD") == 3.6
+
+
+def test_as_int_falls_back_on_malformed_value():
+    cfg = config.parse_config("MAX_BUFFERED=notanumber")
+    assert config.as_int(cfg, "MAX_BUFFERED") == 50      # default, not a crash
+
+
+def test_as_float_falls_back_on_malformed_value():
+    cfg = config.parse_config("BATTERY_DIVIDER_RATIO=oops")
+    assert config.as_float(cfg, "BATTERY_DIVIDER_RATIO") == 2.0
+
+
+def test_max_duration_default_is_ram_safe():
+    assert config.parse_config("")["MAX_DURATION_S"] == "60"

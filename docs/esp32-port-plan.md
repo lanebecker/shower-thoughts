@@ -70,13 +70,18 @@ exactly like the Pi suite mocks `RPi.GPIO`/`pyaudio`. Hardware modules import
 | Module | Role | Host-testable? |
 |--------|------|----------------|
 | `wavfile.py` | Build a WAV header for given rate/width/channels/length | ✅ pure |
+| `audio.py` | 32-bit I2S frame → 16-bit PCM (keep INMP441's top 16 bits) | ✅ pure |
 | `buffer.py` | Pending-WAV listing, newest-N cap, oldest-first ordering (ports the Pi logic) | ✅ pure |
-| `uploader.py` | Hand-build the `multipart/form-data` body (boundary + headers) and POST | ✅ body builder is pure; POST is hardware-ish |
-| `config.py` | Load Wi-Fi creds / `BACKEND_URL` / `DEVICE_TOKEN` / thresholds (from a config file or NVS) | ✅ parsing |
+| `uploader.py` | Multipart body + streaming envelope + POST | ✅ builders are pure; POST is hardware-ish |
+| `config.py` | Load Wi-Fi creds / `BACKEND_URL` / `DEVICE_TOKEN` / thresholds; safe typed coercion | ✅ parsing |
 | `leds.py` | RGB state table → pin levels (recording/uploading/done/error/buffered/low-battery) | ✅ table |
+| `button.py` | Press classifier (short / long / none) | ✅ pure |
+| `power.py` | Deep-sleep / retry planning | ✅ pure |
+| `battery.py` | LiPo ADC → volts + low threshold | ✅ pure |
+| `rtcstate.py` | Encode/decode small state across deep sleep | ✅ pure |
 | `recorder.py` | I2S capture (INMP441) → 16 kHz mono WAV to flash | hardware |
 | `main.py` | Boot, Wi-Fi connect, button + LED state machine, sleep orchestration | hardware |
-| `tests/` | Host pytest over the pure modules | — |
+| `tests/` | Host pytest over the pure modules (43 tests) | — |
 
 > `urequests` has **no multipart support**, so `uploader.py` constructs the body
 > by hand (boundary, `Content-Disposition`, the WAV bytes, closing boundary). This
@@ -139,17 +144,37 @@ Goal: flash it and prove *press button → speak → note appears*, end to end.
 
 ---
 
-## Risks & open questions
+## Review outcomes (2026-06-16 deep review)
 
-- **Deep sleep ↔ retry reconciliation** (item 8) is the core design tension; the
-  default (flush-on-wake) is simplest and most battery-friendly but delays delivery
-  of buffered thoughts until the next press. Revisit if that feels bad in use.
-- **Multipart in `urequests`** is hand-rolled; chunked/streamed upload of a ~2 MB
-  WAV may need care to avoid loading it all into RAM at once (stream from flash).
-- **RTC-GPIO button constraint** must be reflected in the wiring before anyone
-  solders.
-- **MicroPython memory headroom** for large recordings — rely on PSRAM + streaming
-  to flash, not SRAM.
+Addressed in code:
+- **Clock resolution** — all on-device timing uses `time.ticks_ms`/`ticks_diff`
+  (MicroPython's `time.time()` is integer seconds, too coarse for long-press/timeouts).
+- **INMP441 24-bit-in-32-bit** — `recorder.py` captures at `bits=32` and downconverts
+  with the host-tested `audio.pcm32_to_pcm16` (keeps the top 16 bits).
+- **Upload success** — `uploader.post_wav` decides success on HTTP status, not on a
+  parseable body, so a 2xx with odd JSON can't trigger a re-upload (duplicate) loop.
+- **RAM** — default `MAX_DURATION_S` lowered to 60 s (~1.9 MB) so the in-RAM upload
+  is PSRAM-safe; `multipart_envelope` added as the basis for the streaming path.
+- **Robustness** — config coercion falls back to defaults (a bad `config.txt` can't
+  brick a headless boot); a stuck/shorted button can't hang the loop (`MAX_HOLD_S`);
+  empty/corrupt buffered WAVs are skipped, not shipped; filenames carry a counter to
+  avoid same-second collisions.
+
+## Open questions / bench-only items
+
+- **Deep sleep ↔ retry reconciliation** — default is flush-on-wake (best battery);
+  timed wake-to-retry is opt-in (`TIMER_WAKE`). Revisit if delivery latency annoys.
+- **Streaming upload** — for clips beyond ~60 s, implement a socket-level streaming
+  POST using `multipart_envelope` + `Content-Length`; can't be verified without the board.
+- **Wake button pull-up** — internal pull-ups are off in deep sleep; an external
+  ~100 kΩ pull-up on the (RTC-GPIO) button is needed for reliable wake. In the wiring.
+- **Wake-cause auto-record** — on a button wake, ideally start recording immediately
+  (check `machine.wake_reason()`) instead of falling through `flush_pending` first.
+  Left as a bench task to avoid shipping untested wake-reason handling.
+- **ADC accuracy / `read_uv` calibration** — the low-battery cue is in the accurate
+  ADC region; full-charge voltage reporting is approximate and needs a calibrated build.
+- **Capture throughput** — if the per-block `audio.pcm32_to_pcm16` loop can't keep up
+  with 16 kHz on-device, optimize (viper / `memoryview.cast`) — verify against `test_audio`.
 
 ## References (verified Jun 2026)
 

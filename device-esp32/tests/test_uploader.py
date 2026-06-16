@@ -27,3 +27,11 @@ def test_blank_line_separates_headers_from_content():
     # The part headers must be terminated by a blank line (\r\n\r\n) before data.
     body, _ = uploader.build_multipart(b"DATA", boundary="B")
     assert b"\r\n\r\nDATA\r\n--B--\r\n" in body
+
+
+def test_envelope_matches_build_multipart():
+    prefix, suffix = uploader.multipart_envelope(boundary="B")
+    body, _ = uploader.build_multipart(b"DATA", boundary="B")
+    assert body == prefix + b"DATA" + suffix
+    assert prefix.startswith(b"--B\r\n")
+    assert suffix == b"\r\n--B--\r\n"

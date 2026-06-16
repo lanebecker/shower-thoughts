@@ -20,7 +20,10 @@ DEFAULTS = {
     "WIFI_PASSWORD": "",
     "SAMPLE_RATE": "16000",
     "MAX_BUFFERED": "50",
-    "MAX_DURATION_S": "300",
+    # 60 s ~= 1.9 MB at 16 kHz/mono/16-bit. main.py currently reads a clip fully
+    # into RAM to upload, so keep this RAM-safe on the PSRAM board; longer clips
+    # need the streaming-upload path (see uploader.multipart_envelope).
+    "MAX_DURATION_S": "60",
     "IDLE_SLEEP_S": "0",           # idle seconds before deep sleep; 0 = always-on (Phase 2 opt-in)
     "RETRY_INTERVAL_S": "0",       # >0 + TIMER_WAKE: periodic wake to retry a backlog
     "TIMER_WAKE": "",              # "1" to enable timed wake-to-retry while a backlog exists
@@ -47,8 +50,26 @@ def parse_config(text):
 
 
 def as_int(cfg, key):
-    return int(cfg[key])
+    """Coerce cfg[key] to int; fall back to the default on a bad/missing value.
+
+    A typo'd config value must not crash a headless device on boot, so we degrade
+    to the known-good default rather than raising.
+    """
+    try:
+        return int(cfg[key])
+    except (ValueError, TypeError, KeyError):
+        try:
+            return int(DEFAULTS[key])
+        except (ValueError, TypeError, KeyError):
+            return 0
 
 
 def as_float(cfg, key):
-    return float(cfg[key])
+    """Coerce cfg[key] to float; fall back to the default on a bad/missing value."""
+    try:
+        return float(cfg[key])
+    except (ValueError, TypeError, KeyError):
+        try:
+            return float(DEFAULTS[key])
+        except (ValueError, TypeError, KeyError):
+            return 0.0

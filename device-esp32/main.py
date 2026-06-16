@@ -2,8 +2,8 @@
 ShowerThoughts ESP32-S3 firmware — entry point.
 
 HARDWARE MODULE — bench-tested only. Wires the host-tested logic (config, buffer,
-uploader, leds, button, power, battery, rtcstate) to the on-device pieces (Wi-Fi,
-GPIO, I2S recorder, deep sleep).
+uploader, leds, button, power, battery, rtcstate, audio) to the on-device pieces
+(Wi-Fi, GPIO, I2S recorder, deep sleep).
 
 Button UX (matches the Pi firmware):
   - short press while idle       -> start recording
@@ -15,6 +15,9 @@ idle that long and wakes on a button press (~µA standby). machine.deepsleep()
 resets the chip, so on wake main() re-runs from the top — it flushes any backlog
 first, then waits for input. Default IDLE_SLEEP_S=0 keeps it always-on until deep
 sleep is validated at the bench.
+
+Timing uses time.ticks_ms()/ticks_diff(): on MicroPython time.time() is integer
+seconds, too coarse for the long-press and timeout logic.
 
 Config lives in `config.txt` (KEY=VALUE) on the device filesystem; copy
 `config.example.txt` to `config.txt` and edit. See config.py for keys/defaults.
@@ -31,7 +34,6 @@ import button as button_logic
 import battery
 import leds
 import power
-import rtcstate
 import uploader
 import recorder
 
@@ -40,6 +42,8 @@ RECORDINGS_DIR = "/recordings"
 
 # GPIO assignments (mirror docs/hardware-guide.md).
 # NOTE: BUTTON_PIN must be an RTC GPIO (0-21 on the S3) so deep-sleep wake works.
+# For reliable wake, add an EXTERNAL pull-up on the button line — internal pull-ups
+# are powered down in deep sleep (see go_to_sleep).
 BUTTON_PIN = 14
 LED_RED_PIN = 4
 LED_GREEN_PIN = 5
@@ -47,9 +51,15 @@ LED_BLUE_PIN = 6
 
 LONG_PRESS_S = 3.0
 DEBOUNCE_S = 0.05
+MAX_HOLD_S = 10.0                 # a press held longer is treated as a fault, not a hang
 BATTERY_CHECK_INTERVAL_S = 300
 
-_last_battery_check = 0
+_last_battery_ms = 0
+_seq = 0
+
+
+def _elapsed_s(start_ms):
+    return time.ticks_diff(time.ticks_ms(), start_ms) / 1000
 
 
 class Button:
@@ -65,20 +75,23 @@ class Button:
 def classify_press(btn):
     """Block until the in-progress press resolves; return 'short', 'long', or None.
 
-    The decision itself lives in the host-tested button.classify; this just samples
-    the real pin and feeds it elapsed hold time.
+    The decision lives in the host-tested button.classify; this samples the pin and
+    feeds it elapsed hold time. A press held past MAX_HOLD_S (e.g. a shorted button)
+    returns 'long' rather than spinning forever.
     """
     time.sleep(DEBOUNCE_S)
     if not btn.pressed():
         return None
-    t0 = time.time()
+    t0 = time.ticks_ms()
     while True:
-        kind = button_logic.classify(
-            time.time() - t0, released=not btn.pressed(), long_press_s=LONG_PRESS_S
-        )
+        held = _elapsed_s(t0)
+        if held >= MAX_HOLD_S:
+            return "long"
+        kind = button_logic.classify(held, released=not btn.pressed(), long_press_s=LONG_PRESS_S)
         if kind == "long":
-            while btn.pressed():            # drain the hold so it fires once
-                time.sleep(0.02)
+            t1 = time.ticks_ms()
+            while btn.pressed() and _elapsed_s(t1) < MAX_HOLD_S:
+                time.sleep(0.02)         # drain the hold so it fires once
             return "long"
         if kind == "short":
             return "short"
@@ -106,23 +119,40 @@ def connect_wifi(ssid, password, timeout_s=15):
     wlan.active(True)
     if not wlan.isconnected() and ssid:
         wlan.connect(ssid, password)
-        t0 = time.time()
+        t0 = time.ticks_ms()
         while not wlan.isconnected():
-            if time.time() - t0 > timeout_s:
+            if _elapsed_s(t0) > timeout_s:
                 return False
             time.sleep(0.2)
     return wlan.isconnected()
 
 
-def _timestamp():
+def _next_name():
+    """A buffer filename that sorts chronologically and is unique within a session.
+
+    The timestamp orders files across time; the per-boot counter breaks ties when
+    two recordings land in the same second (or when the clock hasn't NTP-synced).
+    """
+    global _seq
+    _seq = (_seq + 1) % 1000
     t = time.localtime()
-    return "%04d%02d%02d_%02d%02d%02d" % (t[0], t[1], t[2], t[3], t[4], t[5])
+    return "thought_%04d%02d%02d_%02d%02d%02d_%03d.wav" % (
+        t[0], t[1], t[2], t[3], t[4], t[5], _seq
+    )
+
+
+def _is_empty_wav(path):
+    """True if the file is missing or header-only (<= 44 bytes) — e.g. a crash mid-record."""
+    try:
+        return os.stat(path)[6] <= 44
+    except OSError:
+        return True
 
 
 def _send(path, name, cfg):
     """Upload one WAV; delete on success. Returns the job_id."""
     with open(path, "rb") as f:
-        data = f.read()          # PSRAM has room; stream from flash if clips grow
+        data = f.read()          # RAM-bounded by MAX_DURATION_S; stream for longer clips
     job = uploader.post_wav(
         cfg["BACKEND_URL"] + "/upload",
         data,
@@ -136,8 +166,15 @@ def _send(path, name, cfg):
 def flush_pending(cfg):
     """Upload buffered thoughts oldest-first; stop at the first failure."""
     for name in buf.pending_wavs(RECORDINGS_DIR):
+        path = RECORDINGS_DIR + "/" + name
+        if _is_empty_wav(path):
+            try:
+                os.remove(path)          # drop corrupt/empty leftovers, don't ship them
+            except OSError:
+                pass
+            continue
         try:
-            _send(RECORDINGS_DIR + "/" + name, name, cfg)
+            _send(path, name, cfg)
         except Exception:
             break   # backend still unreachable — leave the rest for next time
 
@@ -154,7 +191,7 @@ def record_and_upload(btn, led, cfg):
             return False
         return True
 
-    name = "thought_%s.wav" % _timestamp()
+    name = _next_name()
     path = RECORDINGS_DIR + "/" + name
     n = recorder.record(
         path,
@@ -193,7 +230,7 @@ def _battery_adc(cfg):
         from machine import ADC, Pin as _Pin
         adc = ADC(_Pin(int(pin)))
         try:
-            adc.atten(ADC.ATTN_11DB)   # widen the input range toward ~3.3 V
+            adc.atten(ADC.ATTN_11DB)   # widen the input range toward ~2.5 V usable
         except Exception:
             pass
         return adc
@@ -203,24 +240,27 @@ def _battery_adc(cfg):
 
 def maybe_check_battery(adc, cfg, led):
     """Throttled low-battery check; flashes the amber cue when low."""
-    global _last_battery_check
+    global _last_battery_ms
     if adc is None:
         return
-    now = time.time()
-    if now - _last_battery_check < BATTERY_CHECK_INTERVAL_S:
+    if _last_battery_ms and _elapsed_s(_last_battery_ms) < BATTERY_CHECK_INTERVAL_S:
         return
-    _last_battery_check = now
+    _last_battery_ms = time.ticks_ms()
     v = battery.read_voltage(adc, config_mod.as_float(cfg, "BATTERY_DIVIDER_RATIO"))
     if battery.is_low(v, config_mod.as_float(cfg, "BATTERY_LOW_THRESHOLD")):
         led.set("low_battery"); time.sleep(0.3); led.set("off")
 
 
 def go_to_sleep(cfg, led, has_backlog):
-    """Configure button wake and deep-sleep (Phase 2). Resets on wake."""
+    """Configure button wake and deep-sleep (Phase 2). Resets the chip on wake.
+
+    The wake button must be an RTC GPIO. Internal pull-ups are powered down in
+    deep sleep, so an EXTERNAL pull-up on the button line is recommended for
+    reliable wake — without it the pin can float and wake spuriously.
+    """
     import machine
     import esp32
     led.set("off")
-    # Wake when the (active-low) button goes LOW. BUTTON_PIN must be an RTC GPIO.
     esp32.wake_on_ext0(pin=Pin(BUTTON_PIN), level=esp32.WAKEUP_ALL_LOW)
     ms = power.sleep_duration_ms(
         has_backlog,
@@ -261,19 +301,19 @@ def main():
     maybe_check_battery(adc, cfg, led)
 
     idle_timeout = config_mod.as_int(cfg, "IDLE_SLEEP_S")
-    last_activity = time.time()
+    last_activity = time.ticks_ms()
 
     while True:
         if button.pressed():
             if classify_press(button) == "short":
                 record_and_upload(button, led, cfg)
             # a long press while idle is ignored (matches the Pi)
-            last_activity = time.time()
+            last_activity = time.ticks_ms()
         else:
             if buf.pending_wavs(RECORDINGS_DIR):
                 flush_pending(cfg)
             maybe_check_battery(adc, cfg, led)
-            if power.should_enter_sleep(time.time() - last_activity, idle_timeout):
+            if power.should_enter_sleep(_elapsed_s(last_activity), idle_timeout):
                 go_to_sleep(cfg, led, bool(buf.pending_wavs(RECORDINGS_DIR)))
         time.sleep(0.05)
 
