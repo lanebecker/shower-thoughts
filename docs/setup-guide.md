@@ -66,6 +66,8 @@ nano .env
 
 Set `BACKEND_URL` to the address of your backend server (e.g. `http://10.0.1.5:8000`). If you're using device token auth, set `DEVICE_TOKEN` to the same value you'll use on the backend.
 
+**Optional — low-battery LED:** if you wired an ADS1115 (see the hardware guide), set `BATTERY_MONITOR=1` in `.env`. Enable I2C (`sudo raspi-config` → Interface Options → I2C, or rely on `install.sh` which adds `dtparam=i2c_arm=on`) and confirm the chip with `i2cdetect -y 1` (default `0x48`). A low cell then shows an amber idle blink on the LED.
+
 ### 1.6 Reboot and Verify
 
 ```bash
@@ -279,6 +281,13 @@ Craft has no public REST API, so the adapter bridges via native macOS mechanisms
 - Verify common cathode is on GND
 - Test: `python3 -c "import RPi.GPIO as GPIO; GPIO.setmode(GPIO.BCM); GPIO.setup(22, GPIO.OUT); GPIO.output(22, GPIO.HIGH)"` — should light red LED
 
+### Low-battery LED never blinks (or logs "Battery ADC read failed")
+
+- Confirm I2C is enabled: `ls /dev/i2c-*` should list a device; if not, enable it via `raspi-config` and reboot
+- Run `i2cdetect -y 1` — the ADS1115 should appear (default `0x48`); if absent, recheck SDA/SCL/VDD/GND wiring
+- Make sure `BATTERY_MONITOR=1` is set and `pip install smbus2` ran (it's in `device/requirements.txt`)
+- Check the divider: A0 should read ~half the battery voltage; adjust `BATTERY_DIVIDER_RATIO` if your resistors aren't equal
+
 ### Backend upload fails (device logs show connection error)
 
 - Confirm backend is running: `curl http://<server-ip>:8000/health`
@@ -288,5 +297,6 @@ Craft has no public REST API, so the adapter bridges via native macOS mechanisms
 ### Note never appears in destination app
 
 - Check backend logs: `uvicorn` prints job progress to stdout
-- Try posting a test job manually: `curl -X POST http://localhost:8000/upload -F "file=@/path/to/test.wav"`
+- Try posting a test job manually: `curl -X POST http://localhost:8000/upload -H "X-Device-Token: <your-token>" -F "audio=@/path/to/test.wav"` (the form field must be `audio` and the file must be a `.wav`)
 - Check adapter-specific env vars are set in `backend/.env`
+```

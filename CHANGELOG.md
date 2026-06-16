@@ -7,21 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-Changes on `main` since the v0.1.1 tag (not yet released — promote to v0.1.2 when tagging).
+_Nothing yet._
+
+## [0.2.0] - 2026-06-16
+
+The **backend-durability** milestone plus the **low-battery indicator** that
+complete v0.2.0, along with the test/CI groundwork that landed since v0.1.1.
 
 ### Added
 
-- **Backend test suite** (`backend/tests/`: `test_main`, `test_summarizer`, `test_registry`, `test_adapters`, `test_apple_notes_escaping`) plus `requirements-dev.txt`, and **device-firmware tests** (`device/tests/test_recorder.py` with `device/conftest.py` stubbing `RPi.GPIO`/`pyaudio`) — 37 tests, every external call mocked.
-- **CI** (`.github/workflows/tests.yml`) — runs both suites on every push and PR.
+- **Persistent SQLite job store** (`backend/jobs.py`) replacing the in-memory dict — job state (status, transcript, resulting note, error) now survives a backend restart.
+- **`GET /jobs` endpoint** — lists recent jobs/notes newest-first (`?limit=`, default 50, max 200), behind the same device-token auth.
+- **Whisper rate-limit/timeout handling** (`backend/transcriber.py`) — retries with exponential backoff that honors `Retry-After`, tunable via `WHISPER_MAX_RETRIES`, `WHISPER_RETRY_BASE_DELAY`, and `WHISPER_TIMEOUT`.
+- **Low-battery LED indicator** (`device/recorder.py`) — optional I2C ADS1115 reads the LiPo through a divider and flashes an amber idle cue below a threshold. Opt-in via `BATTERY_MONITOR`, `smbus2` imported lazily, and a missing/flaky sensor never crashes recording. Adds `device/requirements.txt` and enables I2C in `install.sh`.
+- **Test suites + CI** — backend (`backend/tests/`) and device (`device/tests/`) suites with every external call mocked (now 49 backend + 14 device = 63 tests), `requirements-dev.txt`, and `.github/workflows/tests.yml` running both on every push/PR. `backend/conftest.py` isolates `UPLOAD_DIR`/`JOBS_DB` per test.
 - **`device/firstrun.sh`** — a guided, interactive hardware bring-up check (mic, button, LED, backend reachability, end-to-end).
-
-### Fixed
-
-- **Systemd unit** (`device/shower-thoughts.service`) paths corrected from `shower_thoughts` to `shower-thoughts` to match the clone directory, so the service actually starts.
 
 ### Changed
 
+- Backend version bumped to **0.2.0**; README, architecture, hardware guide, setup guide, and `CLAUDE.md` updated for the SQLite store, `/jobs`, Whisper retry, and the battery monitor.
 - Expanded `CLAUDE.md` with an "Invariants — do not regress" section and Testing / test-discipline notes (kept mirrored to the local project file).
+
+### Fixed
+
+- **Malformed upload** with an empty/missing filename now returns a clean client error instead of a 500.
+- **Systemd unit** (`device/shower-thoughts.service`) paths corrected from `shower_thoughts` to `shower-thoughts` to match the clone directory, so the service actually starts.
 
 ## [0.1.1] - 2026-06-15
 
@@ -79,6 +89,7 @@ default notes path works, and the docs match the code.
   - **Craft adapter** — craftdocs:// URL scheme via AppleScript, or Shortcuts webhook via Shortery (macOS / iOS)
 - **Hardware reference design** — Raspberry Pi Zero 2W + SPH0645 I2S microphone + LiPo power + IP65 Polycase enclosure; full BOM ~$55
 
-[Unreleased]: https://github.com/lanebecker/shower-thoughts/compare/v0.1.1...HEAD
+[Unreleased]: https://github.com/lanebecker/shower-thoughts/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/lanebecker/shower-thoughts/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/lanebecker/shower-thoughts/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/lanebecker/shower-thoughts/releases/tag/v0.1.0

@@ -30,6 +30,7 @@
 | JST 2-pin right-angle connector pair | Easier LiPo swap |
 | 2000 mAh LiPo | ~2× battery life |
 | PTFE pressure-equalization vent (Gore-style, peel-and-stick) | Stops the enclosure "breathing" humid air past the gasket as it heats and cools |
+| ADS1115 I2C ADC breakout + 2× 100 kΩ resistors (~$5) | Low-battery LED indicator — reads LiPo voltage through a divider |
 
 ---
 
@@ -71,6 +72,29 @@ Green anode → 330Ω → GPIO23 (Pin 16)
 Blue  anode → 330Ω → GPIO24 (Pin 18)
 Common cathode      → GND
 ```
+
+### Battery Monitor — ADS1115 I2C ADC (optional)
+
+The low-battery LED (an amber idle blink) reads the LiPo voltage through an
+ADS1115 ADC on the I2C bus. Because a full LiPo reaches 4.2 V — above the Pi's
+3.3 V logic — feed the cell through a 2-resistor divider (two equal resistors,
+e.g. 100 kΩ each, halve it to ~2.1 V) into one ADC input.
+
+```
+ADS1115 Pin   Pi GPIO (BCM)    Pi Physical Pin
+───────────   ─────────────    ───────────────
+VDD           3.3V             Pin 1
+GND           GND              Pin 9
+SCL           GPIO3 (SCL1)     Pin 5
+SDA           GPIO2 (SDA1)     Pin 3
+A0            ← divider midpoint (LiPo+ → 100kΩ → A0 → 100kΩ → GND)
+```
+
+Enable I2C first (`install.sh` adds `dtparam=i2c_arm=on`, or run `sudo
+raspi-config` → Interface Options → I2C). Confirm the chip with `i2cdetect -y 1`
+(default address `0x48`). Then set `BATTERY_MONITOR=1` in `device/.env`; the
+divider ratio defaults to `2.0` for two equal resistors. The feature is off by
+default and a missing/flaky sensor never affects recording.
 
 ### Power Path
 
@@ -148,3 +172,4 @@ An ESP32-S3-DevKitC-1 (N16R8 variant) with the INMP441 I2S mic breakout is the r
 - [ ] Backend reachable: `curl http://<backend-ip>:8000/health` returns `{"status":"ok"}`
 - [ ] End-to-end: press button, speak, press again, note appears in configured notes app
 - [ ] Enclosure closed, held under running tap for 30 seconds — no water ingress
+- [ ] (Optional) `i2cdetect -y 1` shows the ADS1115 at `0x48`; with `BATTERY_MONITOR=1`, a low cell shows the amber idle blink

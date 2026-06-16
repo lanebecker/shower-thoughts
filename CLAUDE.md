@@ -64,6 +64,10 @@ All runtime config lives in `.env` files — never committed.
 |----------------|---------|--------------------------------------------------|
 | `BACKEND_URL`  | —       | Full URL of the backend, e.g. `http://10.0.1.5:8000` |
 | `DEVICE_TOKEN` | —       | Optional shared secret for request auth          |
+| `BATTERY_MONITOR` | —    | Set `1` to enable the optional low-battery LED (needs an I2C ADS1115) |
+| `BATTERY_LOW_THRESHOLD` | `3.5` | Volts at/below which the amber low-battery cue shows |
+| `BATTERY_CHECK_INTERVAL_S` | `300` | Battery sample interval (seconds) |
+| `BATTERY_I2C_BUS` / `BATTERY_I2C_ADDR` / `BATTERY_ADC_CHANNEL` / `BATTERY_DIVIDER_RATIO` | `1` / `0x48` / `0` / `2.0` | ADS1115 bus, address, channel, divider ratio |
 
 ### Backend (`backend/.env`)
 
@@ -97,7 +101,7 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 └──────────────────────────────────────────────────┘
                               │
                               ▼ POST /upload (multipart WAV)
-┌─────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────┐
 │                       BACKEND (FastAPI)                     │
 │                                                             │
 │   /upload ──► job queue ──► transcriber.py                  │
@@ -152,6 +156,7 @@ Deliberate decisions from the v0.1.1 hardening pass. Changing any of them reintr
 - **`DEVICE_TOKEN` is required by default.** An unset token rejects uploads with 503 unless `ALLOW_NO_DEVICE_TOKEN=1`. Don't revert to open-by-default.
 - **Run a single uvicorn worker.** As of v0.2.0 job *state* lives in SQLite (`jobs.py`), so it survives a restart — but job *processing* is an in-process FastAPI BackgroundTask that doesn't coordinate across processes. Multi-worker is a deliberate non-goal; don't add `--workers N` expecting it to work.
 - **The device buffers failed uploads and retries them** (background thread, 60s interval, newest-50 cap, slow-blue LED cue). Do **not** delete a WAV on upload failure — only on success.
+- **The low-battery monitor is opt-in and must never crash recording.** It's disabled unless `BATTERY_MONITOR` is set; `smbus2` is imported lazily and every I2C error is swallowed (read returns `None`), so a missing or flaky ADS1115 can't take down the firmware. Don't move the import to module top or let it raise.
 - **The Obsidian webhook uses `verify=False` on purpose** (the Local REST API plugin serves a self-signed cert on localhost); the urllib3 warning is intentionally silenced.
 - **`audioop` is stdlib only through Python 3.12** (removed in 3.13+). Pi OS Bookworm ships 3.11. If you move to 3.13+, swap to `soxr` or `scipy.signal.resample_poly`.
 - **The enclosure is the Polycase WP-23** (gray polycarbonate, NEMA 4X / IP65), which replaced the discontinued WP-50. Keep the BOM and docs consistent on this part.
@@ -167,7 +172,7 @@ The backend has a pytest suite in `backend/tests/` (`test_main.py`, `test_summar
 
 To add a test for a new adapter, mock `requests.post` (or the relevant HTTP call) and assert the payload shape.
 
-The device firmware is also unit-tested in `device/tests/` (`test_recorder.py`, with `device/conftest.py` stubbing `RPi.GPIO`/`pyaudio`): buffer cap, pending-WAV ordering, retry-flush order + stop-on-failure, and `_post_wav` success/failure. Run with `cd device && pytest`; CI runs both suites. For hardware bring-up, run `bash device/firstrun.sh` on the Pi — a guided walk through the prototype checklist (mic, button, LED, backend reachability, end-to-end).
+The device firmware is also unit-tested in `device/tests/` (`test_recorder.py` and `test_battery.py`, with `device/conftest.py` stubbing `RPi.GPIO`/`pyaudio`): buffer cap, pending-WAV ordering, retry-flush order + stop-on-failure, `_post_wav` success/failure, and the optional battery monitor (raw→volts conversion, threshold, cue gating, read-failure safety, end-to-end read via a fake `smbus2`). Run with `cd device && pytest`; CI runs both suites. For hardware bring-up, run `bash device/firstrun.sh` on the Pi — a guided walk through the prototype checklist (mic, button, LED, backend reachability, end-to-end).
 
 ---
 
@@ -188,4 +193,4 @@ The `main` branch is the only branch; no PRs needed for solo work. The repo was 
 
 See [`docs/roadmap.md`](docs/roadmap.md) for the full versioned plan.
 
-**v0.2.0 — Backend durability** (in progress, 2026-06-16): persistent SQLite job store, `GET /jobs`, and Whisper rate-limit/timeout handling all shipped. The low-battery LED (I2C ADC) is the remaining v0.2.0 item, deferred to a follow-up since it needs the hardware bench. Next milestones: ESP32-S3 port (v0.3.0), local transcription (v0.4.0).
+**v0.2.0 — Backend durability** ✅ complete (2026-06-16): persistent SQLite job store, `GET /jobs`, Whisper rate-limit/timeout handling, and the optional low-battery LED (I2C ADS1115) all shipped. Next milestones: ESP32-S3 port (v0.3.0), local transcription (v0.4.0).
