@@ -138,3 +138,73 @@ def test_get_unknown_job_returns_404(monkeypatch):
     _, client = fresh_client(monkeypatch, device_token="secret")
     resp = client.get("/job/unknownid", headers={"X-Device-Token": "secret"})
     assert resp.status_code == 404
+
+
+def _run_happy_upload(monkeypatch, client, main_reloaded):
+    """Drive one successful upload through the (stubbed) pipeline; return job_id."""
+    monkeypatch.setattr(main_reloaded, "transcribe_audio", lambda p: "hello transcript")
+
+    def fake_summarize(transcript):
+        note = make_note()
+        note.full_text = transcript
+        return note
+
+    monkeypatch.setattr(main_reloaded, "summarize_thought", fake_summarize)
+
+    class _Adapter:
+        def send(self, note):
+            pass
+
+    monkeypatch.setattr(main_reloaded, "get_adapter", lambda: _Adapter())
+    resp = client.post("/upload", files=WAV, headers={"X-Device-Token": "secret"})
+    assert resp.status_code == 202
+    return resp.json()["job_id"]
+
+
+def test_jobs_list_empty(monkeypatch):
+    _, client = fresh_client(monkeypatch, device_token="secret")
+    resp = client.get("/jobs", headers={"X-Device-Token": "secret"})
+    assert resp.status_code == 200
+    assert resp.json() == {"jobs": []}
+
+
+def test_jobs_list_requires_auth(monkeypatch):
+    _, client = fresh_client(monkeypatch, device_token="secret")
+    assert client.get("/jobs").status_code == 401
+
+
+def test_jobs_list_returns_completed_note(monkeypatch):
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+    job_id = _run_happy_upload(monkeypatch, client, main_reloaded)
+
+    resp = client.get("/jobs", headers={"X-Device-Token": "secret"})
+    assert resp.status_code == 200
+    jobs = resp.json()["jobs"]
+    assert len(jobs) == 1
+    job = jobs[0]
+    assert job["id"] == job_id
+    assert job["status"] == "done"
+    assert job["title"] == "Idea"
+    # tags round-trip back into a real list.
+    assert job["tags"] == ["x", "y"]
+
+
+def test_jobs_limit_param_validated(monkeypatch):
+    _, client = fresh_client(monkeypatch, device_token="secret")
+    # Out-of-range limit (max 200) should be a 422 validation error.
+    assert client.get("/jobs?limit=999", headers={"X-Device-Token": "secret"}).status_code == 422
+
+
+def test_job_persists_across_restart(monkeypatch, tmp_path):
+    """A reload of main with the same JOBS_DB still sees a prior job (restart sim)."""
+    db = str(tmp_path / "persist.db")
+    monkeypatch.setenv("JOBS_DB", db)
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+    job_id = _run_happy_upload(monkeypatch, client, main_reloaded)
+
+    # Simulate a backend restart: reload main against the same DB file.
+    monkeypatch.setenv("JOBS_DB", db)
+    main_again, client2 = fresh_client(monkeypatch, device_token="secret")
+    resp = client2.get("/job/" + job_id, headers={"X-Device-Token": "secret"})
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "done"

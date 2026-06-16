@@ -74,6 +74,10 @@ All runtime config lives in `.env` files — never committed.
 | `AI_PROVIDER`       | `anthropic`   | `anthropic` or `openai`                           |
 | `ANTHROPIC_API_KEY` | —             | Required if `AI_PROVIDER=anthropic`               |
 | `OPENAI_API_KEY`    | —             | Required regardless — Whisper transcription always uses it          |
+| `JOBS_DB`           | `$UPLOAD_DIR/jobs.db` | SQLite path for the persistent job store (survives restart) |
+| `WHISPER_MAX_RETRIES` | `3`         | Whisper retry attempts on rate-limit/timeout before failing |
+| `WHISPER_RETRY_BASE_DELAY` | `2.0`  | Base seconds for Whisper backoff (`base * 2**n`)  |
+| `WHISPER_TIMEOUT`   | `60`          | Per-request Whisper timeout, seconds              |
 | `NOTES_ADAPTER`     | `apple_notes` | `apple_notes`, `notion`, `obsidian`, `email`, `craft` |
 | `APPLE_NOTES_FOLDER`| `Shower Thoughts` | iCloud folder for the Apple Notes adapter (macOS; auto-created) |
 
@@ -84,16 +88,16 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
+┌───────────────────────────────────────────────────┐
 │                        DEVICE (Pi Zero 2W)                  │
 │                                                             │
 │   [Button] ──► [recorder.py] ──► WAV file ──► HTTP POST    │
 │                     │                                       │
 │                  [LED RGB]   (status feedback)              │
-└─────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────┘
                               │
                               ▼ POST /upload (multipart WAV)
-┌─────────────────────────────────────────────────────────────┐
+┌─────────────────────────────────────────────────┐
 │                       BACKEND (FastAPI)                     │
 │                                                             │
 │   /upload ──► job queue ──► transcriber.py                  │
@@ -108,7 +112,7 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 │          ┌───────────┬───────────┼───────────┬──────────┐  │
 │          ▼           ▼           ▼           ▼          ▼  │
 │     Apple Notes   Notion     Obsidian     Email       Craft │
-└─────────────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────┘
 ```
 
 ### Key data flow (happy path)
@@ -116,7 +120,7 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 1. User presses button → `recorder.py` captures I2S audio at the card's native 48 kHz (downsampled to 16 kHz before upload)
 2. User presses button again → recording stops, WAV saved to `/tmp/shower_thoughts/`
 3. `recorder.py` POSTs the WAV to `BACKEND_URL/upload`; LED blinks green
-4. Backend saves file, returns `job_id`, spawns background task
+4. Backend saves file, records a `queued` job in the SQLite store (`jobs.py`), returns `job_id`, spawns background task
 5. `transcriber.py` sends WAV to Whisper API → returns transcript string
 6. `summarizer.py` sends transcript to Claude Haiku (or GPT-4o-mini) → returns structured `Note`
 7. `adapters/registry.py` loads the configured adapter and calls `.send(note)`
@@ -128,7 +132,8 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 |------|------|
 | `device/recorder.py` | GPIO, audio capture, HTTP upload |
 | `device/install.sh` | Pi provisioning (I2S, systemd) |
-| `backend/main.py` | FastAPI routes and job management |
+| `backend/main.py` | FastAPI routes (`/upload`, `/job/{id}`, `/jobs`, `/health`) and job orchestration |
+| `backend/jobs.py` | `JobStore` — persistent SQLite job store (replaces the in-memory dict) |
 | `backend/transcriber.py` | Whisper API wrapper |
 | `backend/summarizer.py` | LLM summarization, `Note` dataclass |
 | `backend/adapters/registry.py` | Adapter selection via env var |
@@ -145,7 +150,7 @@ Deliberate decisions from the v0.1.1 hardening pass. Changing any of them reintr
 - **Boot config path is `/boot/firmware/config.txt`** on Raspberry Pi OS Bookworm. `install.sh` writes there and falls back to `/boot/config.txt` only on older images. Don't hard-code the old path.
 - **The I2S overlay is `googlevoicehat-soundcard`** (with `dtparam=i2s=on` and `dtoverlay=i2s-mmap`). There is no stock `i2s-mems` overlay — don't reintroduce it.
 - **`DEVICE_TOKEN` is required by default.** An unset token rejects uploads with 503 unless `ALLOW_NO_DEVICE_TOKEN=1`. Don't revert to open-by-default.
-- **Run a single uvicorn worker.** Job state is an in-memory dict; multiple workers break `GET /job/{id}` and lose jobs on restart. Multi-worker waits on the SQLite store (v0.2.0).
+- **Run a single uvicorn worker.** As of v0.2.0 job *state* lives in SQLite (`jobs.py`), so it survives a restart — but job *processing* is an in-process FastAPI BackgroundTask that doesn't coordinate across processes. Multi-worker is a deliberate non-goal; don't add `--workers N` expecting it to work.
 - **The device buffers failed uploads and retries them** (background thread, 60s interval, newest-50 cap, slow-blue LED cue). Do **not** delete a WAV on upload failure — only on success.
 - **The Obsidian webhook uses `verify=False` on purpose** (the Local REST API plugin serves a self-signed cert on localhost); the urllib3 warning is intentionally silenced.
 - **`audioop` is stdlib only through Python 3.12** (removed in 3.13+). Pi OS Bookworm ships 3.11. If you move to 3.13+, swap to `soxr` or `scipy.signal.resample_poly`.
@@ -156,7 +161,7 @@ Deliberate decisions from the v0.1.1 hardening pass. Changing any of them reintr
 
 ## Testing
 
-The backend has a pytest suite in `backend/tests/` (`test_main.py`, `test_summarizer.py`, `test_registry.py`, `test_adapters.py`, with `backend/conftest.py` supplying dummy API keys). Every external call (OpenAI/Anthropic, `subprocess`, `requests`, `smtplib`) is mocked, so it needs no real credentials or hardware. Run it with `pip install -r backend/requirements.txt -r requirements-dev.txt && cd backend && pytest`. CI runs it on every push (`.github/workflows/tests.yml`).
+The backend has a pytest suite in `backend/tests/` (`test_main.py`, `test_summarizer.py`, `test_registry.py`, `test_adapters.py`, `test_jobs.py`, `test_transcriber.py`, with `backend/conftest.py` supplying dummy API keys and isolating `UPLOAD_DIR`/`JOBS_DB` per test). Every external call (OpenAI/Anthropic, `subprocess`, `requests`, `smtplib`) is mocked, so it needs no real credentials or hardware. Run it with `pip install -r backend/requirements.txt -r requirements-dev.txt && cd backend && pytest`. CI runs it on every push (`.github/workflows/tests.yml`).
 
 **Test discipline (do not skip):** any change to backend behavior must add or update the relevant tests *in the same change*, and the full suite must pass before and after. A new endpoint, module, or adapter needs new tests — e.g. a new adapter gets a test mirroring the existing ones: mock its I/O, assert the payload shape and the missing-env error. Don't push code with red or missing tests.
 
@@ -183,4 +188,4 @@ The `main` branch is the only branch; no PRs needed for solo work. The repo was 
 
 See [`docs/roadmap.md`](docs/roadmap.md) for the full versioned plan.
 
-Next milestone: **v0.2.0 — Backend durability**: persistent SQLite job store, `GET /jobs`, Whisper rate-limit handling, and a low-battery LED. (Device-side retry/buffering already shipped in v0.1.1; local transcription is v0.4.0 and the ESP32-S3 port is v0.3.0.)
+**v0.2.0 — Backend durability** (in progress, 2026-06-16): persistent SQLite job store, `GET /jobs`, and Whisper rate-limit/timeout handling all shipped. The low-battery LED (I2C ADC) is the remaining v0.2.0 item, deferred to a follow-up since it needs the hardware bench. Next milestones: ESP32-S3 port (v0.3.0), local transcription (v0.4.0).

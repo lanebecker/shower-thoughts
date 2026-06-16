@@ -1,6 +1,6 @@
 # 🚿 ShowerThoughts
 
-[![version](https://img.shields.io/badge/version-0.1.1-blueviolet)](VERSION)
+[![version](https://img.shields.io/badge/version-0.2.0-blueviolet)](VERSION)
 
 > Press a button. Record your idea. It lands in your notes app, transcribed and summarized, by the time you dry off.
 
@@ -66,6 +66,18 @@ nano .env            # set AI provider keys and NOTES_ADAPTER
 
 uvicorn main:app --host 0.0.0.0 --port 8000
 ```
+
+The backend exposes a small HTTP API:
+
+| Method & path | Purpose |
+|---------------|---------|
+| `POST /upload` | Device uploads a WAV, gets back a `job_id` |
+| `GET /job/{id}` | Poll a single job's status |
+| `GET /jobs?limit=N` | List recent jobs/notes, newest first (default 50, max 200) |
+| `GET /health` | Liveness check |
+
+All endpoints except `/health` require the `X-Device-Token` header. Job state is
+persisted to SQLite, so it survives a backend restart.
 
 ## Notes Adapters
 
