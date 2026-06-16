@@ -11,7 +11,15 @@ LED status:
   - Blinking green: Uploading
   - Solid green:  Upload success
   - Solid blue:   Processing (server working on it)
+  - Slow blue pulse (idle): Buffered thought(s) waiting to retry
   - Fast red blink: Error
+
+Resilience:
+  A recorded thought is written to disk before upload. If the upload fails
+  (WiFi down, backend unreachable), the WAV stays buffered in RECORDINGS_DIR
+  and a background thread retries it every RETRY_INTERVAL_S seconds; any
+  backlog is also flushed on boot. The buffer keeps the newest MAX_BUFFERED
+  thoughts so a long outage can't fill the SD card.
 """
 
 import os
@@ -49,10 +57,17 @@ SAMPLE_WIDTH   = 2
 CHUNK_SIZE     = 1024
 MAX_DURATION_S = 300
 
+RETRY_INTERVAL_S = 60    # how often the background thread retries buffered thoughts
+MAX_BUFFERED     = 50    # keep at most this many buffered WAVs (newest win)
+
 BACKEND_URL    = os.getenv("BACKEND_URL", "http://your-server:8000")
 DEVICE_TOKEN   = os.getenv("DEVICE_TOKEN", "")
 RECORDINGS_DIR = Path("/tmp/shower_thoughts")
 RECORDINGS_DIR.mkdir(exist_ok=True)
+
+# Serializes all uploads (a live one and the background retry pass) so they
+# never run at the same time.
+_upload_lock = threading.Lock()
 
 class State:
     IDLE      = "idle"
@@ -102,6 +117,83 @@ def _stop_led_thread():
         _led_thread.join(timeout=1)
     _led_thread = None
 
+
+# ── Buffered-upload helpers ────────────────────────────────────────────────
+
+def _pending_wavs():
+    """Buffered recordings, oldest first (filename timestamps sort chronologically)."""
+    return sorted(RECORDINGS_DIR.glob("thought_*.wav"))
+
+def _enforce_buffer_cap():
+    """Keep only the newest MAX_BUFFERED buffered WAVs so the SD card can't fill."""
+    files = _pending_wavs()
+    for old in files[:-MAX_BUFFERED] if len(files) > MAX_BUFFERED else []:
+        try:
+            old.unlink()
+            log.warning(f"Buffer cap reached; dropped oldest buffered thought: {old.name}")
+        except OSError:
+            pass
+
+def _post_wav(filepath: Path) -> bool:
+    """POST one WAV to the backend. On success delete it and return True."""
+    headers = {}
+    if DEVICE_TOKEN:
+        headers["X-Device-Token"] = DEVICE_TOKEN
+    try:
+        with open(filepath, "rb") as f:
+            resp = requests.post(
+                f"{BACKEND_URL}/upload",
+                files={"audio": (filepath.name, f, "audio/wav")},
+                headers=headers, timeout=60,
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        log.info(f"Upload accepted ({filepath.name}), job_id={data.get('job_id')}")
+        filepath.unlink(missing_ok=True)
+        return True
+    except requests.RequestException as e:
+        log.warning(f"Upload failed for {filepath.name}: {e}")
+        return False
+
+def _pending_cue():
+    """Brief slow blue pulse to signal buffered thoughts are waiting to retry."""
+    if _state != State.IDLE:
+        return
+    _led_solid(b=True)
+    time.sleep(0.4)
+    _led_off()
+
+def _flush_pending() -> int:
+    """Try to upload buffered thoughts, oldest first. Returns count uploaded."""
+    if not _pending_wavs():
+        return 0
+    sent = 0
+    with _upload_lock:
+        _enforce_buffer_cap()
+        for fp in _pending_wavs():
+            if _state == State.RECORDING:
+                break  # don't compete with an active recording
+            if _post_wav(fp):
+                sent += 1
+            else:
+                break  # backend still unreachable — leave the rest for next pass
+    if sent:
+        log.info(f"Flushed {sent} buffered thought(s).")
+    return sent
+
+def _retry_loop():
+    """Background thread: periodically retry buffered thoughts while idle."""
+    time.sleep(5)  # let the boot animation finish first
+    while True:
+        try:
+            if _state == State.IDLE and _pending_wavs():
+                _pending_cue()
+                _flush_pending()
+        except Exception as e:
+            log.warning(f"Retry pass error: {e}")
+        time.sleep(RETRY_INTERVAL_S)
+
+
 def _record_to_file(filepath: Path) -> bool:
     global _recording, _cancel
     pa = pyaudio.PyAudio()
@@ -147,6 +239,7 @@ def _record_to_file(filepath: Path) -> bool:
         wf.setsampwidth(SAMPLE_WIDTH)
         wf.setframerate(SAMPLE_RATE)
         wf.writeframes(raw)
+    _enforce_buffer_cap()
     duration = time.time() - start_time
     size_kb = filepath.stat().st_size / 1024
     log.info(f"Saved {duration:.1f}s recording ({size_kb:.1f} KB) → {filepath}")
@@ -155,28 +248,21 @@ def _record_to_file(filepath: Path) -> bool:
 def _upload_recording(filepath: Path):
     _led_blink(g=True, interval=0.2)
     log.info(f"Uploading {filepath.name}...")
-    headers = {}
-    if DEVICE_TOKEN:
-        headers["X-Device-Token"] = DEVICE_TOKEN
-    try:
-        with open(filepath, "rb") as f:
-            resp = requests.post(
-                f"{BACKEND_URL}/upload",
-                files={"audio": (filepath.name, f, "audio/wav")},
-                headers=headers, timeout=60,
-            )
-        resp.raise_for_status()
-        data = resp.json()
-        log.info(f"Upload accepted, job_id={data.get('job_id')}")
+    with _upload_lock:
+        ok = _post_wav(filepath)
+    if ok:
         _led_solid(g=True)
         time.sleep(2)
-        filepath.unlink()
-    except requests.RequestException as e:
-        log.error(f"Upload failed: {e}")
-        _led_blink(r=True, interval=0.1)
-        time.sleep(5)
-    finally:
         _led_off()
+        # We're online — opportunistically flush any older buffered thoughts.
+        _flush_pending()
+    else:
+        # Thought is safely buffered on disk; the retry thread will send it later.
+        log.info("Upload failed — thought buffered, will retry in the background.")
+        _led_blink(r=True, interval=0.1)
+        time.sleep(2)
+        _led_off()
+        _pending_cue()
 
 def _handle_button(channel):
     global _state, _recording, _cancel
@@ -237,6 +323,10 @@ def main():
         _led_solid(*color)
         time.sleep(0.15)
     _led_off()
+    backlog = _pending_wavs()
+    if backlog:
+        log.info(f"{len(backlog)} buffered thought(s) from a previous session — will retry.")
+    threading.Thread(target=_retry_loop, daemon=True).start()
     log.info(f"Ready. Backend: {BACKEND_URL}")
     log.info("Press button to record. Long-press to cancel.")
     try:

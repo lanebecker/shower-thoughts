@@ -44,7 +44,7 @@
 
 ### `device/recorder.py`
 
-The firmware that runs continuously on the Pi. It listens for button presses on GPIO17: a short press starts or stops a recording session; a 3-second long press cancels the current recording without uploading. Audio is captured from the SPH0645 I2S microphone via pyaudio at the card's native 48 kHz, downsampled to 16 kHz mono, and saved as a WAV file under `/tmp/shower_thoughts/`. On stop, the WAV is multipart-POSTed to the backend. The RGB LED on GPIO22/23/24 gives immediate visual feedback for each state (recording, uploading, success, error, cancellation).
+The firmware that runs continuously on the Pi. It listens for button presses on GPIO17: a short press starts or stops a recording session; a 3-second long press cancels the current recording without uploading. Audio is captured from the SPH0645 I2S microphone via pyaudio at the card's native 48 kHz, downsampled to 16 kHz mono, and saved as a WAV file under `/tmp/shower_thoughts/`. On stop, the WAV is multipart-POSTed to the backend. The RGB LED on GPIO22/23/24 gives immediate visual feedback for each state (recording, uploading, success, error, cancellation). A failed upload is buffered on disk and retried automatically by a background thread.
 
 ### `device/install.sh`
 
@@ -106,8 +106,8 @@ Craft has no public REST API, so this adapter bridges to it via native mechanism
 
 1. Steps 1–4 as above
 2. `recorder.py` POSTs to `BACKEND_URL/upload`, gets a connection error (timeout, refused, etc.)
-3. LED flashes red three times, returns to idle
-4. WAV file is left in `/tmp/shower_thoughts/` for manual recovery (future: retry queue)
+3. LED blinks red briefly, then a slow blue pulse signals the thought is buffered
+4. The WAV stays in `/tmp/shower_thoughts/`; a background thread retries it every 60s (and flushes the backlog on next boot) until the backend is reachable. The buffer keeps the newest 50 recordings so a long outage can't fill the SD card.
 
 ## Configuration Reference
 
@@ -175,9 +175,9 @@ shower-thoughts/
 
 ## What's Not Yet Implemented
 
-- **Retry queue** — failed uploads are dropped; WAV stays in `/tmp` but nothing retries automatically
 - **Local Whisper** — transcriber.py has a stub; requires Pi 4 or beefier hardware for acceptable speed
 - **Low-battery indicator** — LiPo voltage monitoring via I2C ADC not yet wired
 - **Multi-device support** — backend is single-user; no device namespacing on notes
 - **Web review UI** — no way to see or edit a note before it's dispatched
 - **Voice activity detection** — must manually press button; no auto-start on speech
+```
