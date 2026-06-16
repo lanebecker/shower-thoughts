@@ -23,7 +23,7 @@
 - 🗣️ **AI transcription** — OpenAI Whisper API, accurate even with shower acoustics
 - 🧠 **Structured summarization** — title, summary, full transcript, and auto-tags via Claude or GPT
 - 🔌 **Pluggable destinations** — Apple Notes, Notion, Obsidian, Craft, or plain email
-- 🔒 **Local-first** — audio is never stored longer than the current processing job
+- 🔒 **Privacy-conscious** — audio is used only for the active job and never persisted on the backend afterward (cloud transcription today; on-device Whisper is on the roadmap)
 
 ## Hardware (Quick Reference)
 
@@ -34,10 +34,10 @@
 | IP67 16mm momentary button | $5 |
 | TP4056 + MT3608 + 1000 mAh LiPo | $12 |
 | RGB LED + resistors | $1 |
-| Polycase WP-23 NEMA 4 enclosure | $12 |
+| Polycase WP-23 NEMA 4X polycarbonate enclosure | $20 |
 | Suction cup or magnetic mount | $3 |
 
-**Total: ~$55** — See [docs/hardware-guide.md](docs/hardware-guide.md) for full BOM, wiring diagram, and enclosure tips.
+**Total: ~$65** — See [docs/hardware-guide.md](docs/hardware-guide.md) for the full itemized BOM, wiring diagram, and enclosure tips.
 
 ## Quick Start
 

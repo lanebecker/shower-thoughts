@@ -12,12 +12,14 @@
 | 6 | 1000 mAh 3.7V LiPo cell (with JST connector) | Adafruit / eBay | $8 |
 | 7 | RGB LED (common cathode, 5mm) | Any | $0.50 |
 | 8 | 3× 330Ω resistors | Any | $0.10 |
-| 9 | Polycase WP-23 NEMA 4 polycarbonate enclosure | Polycase.com | $12 |
+| 9 | Polycase WP-23 polycarbonate enclosure, NEMA 4X / IP65 (4.5 × 3.5 × 2.1 in) | Polycase.com | $20 |
 | 10 | Micro-USB panel mount extension cable | Amazon | $3 |
 | 11 | PTFE acoustic vent membrane (3mm, peel-and-stick) | TE Connectivity / Mouser | $2 |
 | 12 | M3 nylon standoffs + screws | Amazon | $1 |
 
-**Total: ~$57** at maker quantities. Subtract $10–12 if you source the Pi from a local reseller.
+**Total: ~$65** at maker quantities. Subtract $10–12 if you source the Pi from a local reseller.
+
+> The WP-23 replaced the discontinued WP-50. It's gray polycarbonate (not ABS) with a silicone cover gasket, rated NEMA 4X / IP65, and a little roomier inside than the old WP-50.
 
 ### Optional / Upgrade Parts
 
@@ -27,6 +29,7 @@
 | Conformal coating spray | Extra water protection on PCB |
 | JST 2-pin right-angle connector pair | Easier LiPo swap |
 | 2000 mAh LiPo | ~2× battery life |
+| PTFE pressure-equalization vent (Gore-style, peel-and-stick) | Stops the enclosure "breathing" humid air past the gasket as it heats and cools |
 
 ---
 
@@ -79,23 +82,28 @@ USB-C / Micro-USB  →  TP4056 charger  →  LiPo cell
 
 Connect the MT3608 input to the LiPo's positive terminal (via the TP4056 output), set the MT3608 output to 5.1V with its trim pot, and connect to the Pi's 5V GPIO pin (not the micro-USB port on the Pi, to avoid powering through two regulators). **Never power this from mains electricity inside a shower. LiPo only.**
 
+> ⚠️ **Set the MT3608 output voltage *before* you connect the Pi.** Turn the trim pot while watching a multimeter on the output and dial in 5.0–5.1V; the MT3608 ships wound up well above 5V and can push >20V, which will instantly kill a Pi.
+>
+> ⚠️ **Feeding 5V into the GPIO pin bypasses the Pi's input polyfuse and protection.** That's the intended setup here (it avoids double regulation), but it means a bad boost-converter setting or a short goes straight to the board — double-check polarity and voltage before powering on.
+
 ---
 
 ## Enclosure Assembly
 
-**Polycase WP-23** is a 4.1" × 3.2" × 1.9" polycarbonate box rated NEMA 4 (equivalent to IP65/66 — dust-tight and water jet resistant). That's enough for a shower; you don't need IP67/68 unless you're mounting it inside the spray zone.
+**Polycase WP-23** is a 4.5" × 3.5" × 2.1" gray polycarbonate box rated NEMA 4X / IP65 (dust-tight, water-jet resistant), with a silicone cover gasket. That's enough for a shower; you don't need IP67/68 unless you're mounting it inside the spray zone.
 
 Assembly order:
 
 1. Drill button hole (16mm) on the front face using a step bit
 2. Drill a 3mm sound inlet hole for the microphone, positioned over the SPH0645 breakout
 3. Peel-and-stick the PTFE acoustic vent membrane over the sound hole from the inside — this lets sound through while blocking water droplets
-4. Install the IP67 button with its silicone o-ring and hex nut
-5. Cut a slot for the micro-USB panel-mount charging extension
-6. Seal the USB slot edges with clear silicone RTV (let cure 24h before exposing to water)
-7. Mount the Pi on M3 nylon standoffs to the enclosure floor
-8. Tuck the LiPo alongside the Pi; secure with double-sided foam tape
-9. Close the lid — the WP-23's foam gasket handles the waterproofing
+4. (Recommended) Add a PTFE pressure-equalization vent on a side wall — as the enclosure heats up in the shower and cools afterward, the internal air pressure swings and pulls humid air past the gasket; a vent lets pressure equalize without letting water in
+5. Install the IP67 button with its silicone o-ring and hex nut
+6. Cut a slot for the micro-USB panel-mount charging extension
+7. Seal the USB slot edges with clear silicone RTV (let cure 24h before exposing to water)
+8. Mount the Pi on M3 nylon standoffs to the enclosure floor (the WP-23 has 4 mounting bosses in the base)
+9. Tuck the LiPo alongside the Pi; secure with double-sided foam tape
+10. Close the lid — the WP-23's silicone gasket handles the waterproofing
 
 ### Mounting Options
 
@@ -133,7 +141,7 @@ An ESP32-S3-DevKitC-1 (N16R8 variant) with the INMP441 I2S mic breakout is the r
 ## v0.1 Prototype Checklist
 
 - [ ] Pi Zero 2W boots, SSH works over WiFi
-- [ ] `arecord -D hw:0 -f S16_LE -r 16000 -d 5 test.wav` records audio without errors
+- [ ] `arecord -D plughw:0 -c1 -f S16_LE -r 16000 -d 5 test.wav` records audio without errors (the card is 48 kHz native; `plughw` resamples)
 - [ ] `aplay test.wav` plays back recognizable audio (not silence or static)
 - [ ] Button press detected: `python3 -c "import RPi.GPIO as GPIO; GPIO.setmode(GPIO.BCM); GPIO.setup(17, GPIO.IN, pull_up_down=GPIO.PUD_UP); import time; time.sleep(5); print(GPIO.input(17))"`
 - [ ] RGB LED cycles through red / green / blue on boot animation
