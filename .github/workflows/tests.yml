@@ -24,3 +24,7 @@ jobs:
         run: |
           cd device
           pytest -q
+      - name: Run ESP32 firmware tests
+        run: |
+          cd device-esp32
+          pytest -q
