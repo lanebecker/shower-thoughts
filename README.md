@@ -73,7 +73,7 @@ Set `NOTES_ADAPTER` in `backend/.env`:
 
 | Value | Destination |
 |-------|-------------|
-| `apple_notes` | Apple Notes via iCloud email or AppleScript |
+| `apple_notes` | Apple Notes on macOS via AppleScript (backend must run on a Mac) |
 | `notion` | Notion database |
 | `obsidian` | Obsidian vault (file write or Local REST API) |
 | `craft` | Craft Docs (URL scheme or Shortcuts webhook) |
