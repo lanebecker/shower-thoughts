@@ -43,11 +43,16 @@ The core loop: press a button, talk, get a note.
 **Why:** The Pi Zero 2W has two real-world problems as a battery device. It idles around 80 mA, so a 1000 mAh cell lasts only ~6–8 hours of standby (a roughly daily charge), and it takes ~30–40 s to boot — so you can't power it down between uses to save that battery. An ESP32-S3 fixes both at once: microamp deep sleep for weeks of standby, and instant wake-on-button. That makes the device genuinely livable, so it's pulled ahead of the nice-to-haves.
 
 Planned:
-- MicroPython (or C) firmware for ESP32-S3 with INMP441 I2S mic
+- MicroPython firmware for ESP32-S3 (N16R8) with INMP441 I2S mic
 - Deep sleep between button presses (wake on GPIO interrupt)
 - HTTP multipart upload using `urequests`
 - Same LED + button UX, including the device-side buffering/retry behavior
 - Hardware guide updated with ESP32 wiring as a first-class option
+
+**Decided (2026-06-16):** MicroPython runtime, MVP-first sequencing (always-on
+record→upload→LED, then deep sleep). Full scope, file layout, BOM, and test
+strategy are in [`esp32-port-plan.md`](esp32-port-plan.md). New firmware lands in
+`device-esp32/`; the Pi firmware stays as a first-class target.
 
 ---
 
