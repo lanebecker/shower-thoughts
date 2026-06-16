@@ -9,33 +9,58 @@ Version history and planned milestones for ShowerThoughts.
 The core loop: press a button, talk, get a note.
 
 - Raspberry Pi Zero 2W firmware with GPIO button and I2S microphone
-- RGB LED status feedback (recording / uploading / done / error)
+- RGB LED status feedback (recording / uploading / done / error / buffered)
 - FastAPI backend with async job processing
 - OpenAI Whisper API transcription
 - Claude Haiku / GPT-4o-mini summarization (structured title + summary + tags)
 - Five pluggable notes adapters: Apple Notes, Notion, Obsidian, Craft, Email
 - Craft URL scheme and Shortcuts webhook strategies
 - Systemd service for autostart on boot
-- Hardware reference design with full BOM (~$57)
+- Device-side buffering + background retry — a thought survives a WiFi/backend outage and uploads itself once the network returns
+- Hardware reference design with full BOM (~$65)
 
-**Why this version:** Get to "does the thing work in the shower" as fast as possible. No polish, no retries, no web UI — just the core loop.
+**Why this version:** Get to "does the thing work in the shower" as fast as possible — including *not losing a thought* when the network blips, because that's the whole point of the device.
 
 ---
 
-## v0.2.0 — Resilience
+## v0.2.0 — Backend durability
 
-**Why:** The MVP drops recordings if the WiFi hiccups or the backend is down. That's unacceptable for a thought you'll only have once.
+**Why:** The device never loses a recording now, but the backend still keeps job state in memory, so a restart forgets in-flight jobs and you can't run more than one worker.
 
 Planned:
-- Retry queue on the device — if upload fails, WAV is kept and retried on next success
-- Persistent job store on the backend (SQLite) instead of in-memory dict
+- Persistent job store on the backend (SQLite) instead of the in-memory dict
 - Graceful handling of Whisper API rate limits and timeouts
 - Low-battery LED indicator (I2C ADC reading LiPo voltage)
 - `GET /jobs` endpoint to list recent notes from the backend
 
 ---
 
-## v0.3.0 — Review UI
+## v0.3.0 — ESP32 firmware port
+
+**Why:** The Pi Zero 2W has two real-world problems as a battery device. It idles around 80 mA, so a 1000 mAh cell lasts only ~6–8 hours of standby (a roughly daily charge), and it takes ~30–40 s to boot — so you can't power it down between uses to save that battery. An ESP32-S3 fixes both at once: microamp deep sleep for weeks of standby, and instant wake-on-button. That makes the device genuinely livable, so it's pulled ahead of the nice-to-haves.
+
+Planned:
+- MicroPython (or C) firmware for ESP32-S3 with INMP441 I2S mic
+- Deep sleep between button presses (wake on GPIO interrupt)
+- HTTP multipart upload using `urequests`
+- Same LED + button UX, including the device-side buffering/retry behavior
+- Hardware guide updated with ESP32 wiring as a first-class option
+
+---
+
+## v0.4.0 — Local transcription
+
+**Why:** Sending audio to OpenAI means your shower monologue travels to a third-party server. Local transcription keeps it on your own hardware — and upgrades the "privacy-conscious" claim to a genuinely local one.
+
+Planned:
+- `faster-whisper` (CTranslate2) running locally on the backend
+- Fallback to the API if local transcription fails or is too slow
+- Performance target: transcribe a 60-second recording in under 30 seconds on a Pi 4 or M-series Mac Mini
+- Configurable: `WHISPER_BACKEND=local|api`
+
+---
+
+## v0.5.0 — Review UI
 
 **Why:** Sometimes the summary is wrong or the tags are off. Before a note gets dispatched, it'd be useful to see it and optionally edit it.
 
@@ -47,32 +72,7 @@ Planned:
 
 ---
 
-## v0.4.0 — Local Transcription
-
-**Why:** Sending audio to OpenAI means your shower monologue travels to a third-party server. Some people would rather not.
-
-Planned:
-- `faster-whisper` (CTranslate2) running locally on the backend
-- Fallback to API if local transcription fails or is too slow
-- Performance target: transcribe a 60-second recording in under 30 seconds on a Pi 4 or M-series Mac Mini
-- Configurable: `WHISPER_BACKEND=local|api`
-
----
-
-## v0.5.0 — ESP32 Firmware Port
-
-**Why:** The Pi Zero 2W draws ~80 mA at idle, draining a 1000 mAh cell in ~12 hours. An ESP32 in deep sleep draws microamps, enabling weeks of battery life.
-
-Planned:
-- MicroPython firmware for ESP32-S3 with INMP441 I2S mic
-- Deep sleep between button presses (wake on GPIO interrupt)
-- HTTP multipart upload using `urequests`
-- Same LED and button UX as Pi version
-- Hardware guide updated with ESP32 wiring
-
----
-
-## v0.6.0 — Multi-Device
+## v0.6.0 — Multi-device
 
 **Why:** More than one person in the household, or more than one shower.
 

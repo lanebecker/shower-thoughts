@@ -129,10 +129,10 @@ If battery life or cost is a priority, an **ESP32-S3** is a capable alternative:
 | I2S mic | ✅ easy | ✅ native support |
 | Firmware language | Python | C / MicroPython |
 | Sleep current | ~80 mA (idle) | ~10 µA (deep sleep) |
-| Battery life (1000 mAh) | ~12 hours | Weeks |
+| Battery life (1000 mAh) | ~6–8 hours | Weeks |
 | Setup complexity | Moderate | Higher |
 
-With an ESP32 you'd need to rewrite the firmware in MicroPython or C, implement HTTP multipart upload manually, and handle the sleep/wake cycle. The trade-off is dramatically better battery life — useful if you don't want to charge every night.
+With an ESP32 you'd need to rewrite the firmware in MicroPython or C, implement HTTP multipart upload manually, and handle the sleep/wake cycle. The trade-off is dramatically better battery life — the Pi Zero 2W idles around 80 mA, so a 1000 mAh cell only lasts ~6–8 hours of standby (a roughly daily charge). It also wakes instantly on a button press, whereas the Pi takes ~30–40 s to boot — so with the Pi you have to leave it powered on (and charging) between uses rather than sleeping it.
 
 An ESP32-S3-DevKitC-1 (N16R8 variant) with the INMP441 I2S mic breakout is the recommended ESP32 combination.
 
