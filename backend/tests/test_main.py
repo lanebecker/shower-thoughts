@@ -208,3 +208,17 @@ def test_job_persists_across_restart(monkeypatch, tmp_path):
     resp = client2.get("/job/" + job_id, headers={"X-Device-Token": "secret"})
     assert resp.status_code == 200
     assert resp.json()["status"] == "done"
+
+
+def test_upload_malformed_filename_is_client_error_not_500(monkeypatch):
+    _, client = fresh_client(monkeypatch, device_token="secret")
+    # A multipart audio part with an empty/missing filename must be rejected as
+    # a clean client error (FastAPI validation 422, or our 400 guard) -- never a
+    # 500 from calling .endswith on a None filename.
+    resp = client.post(
+        "/upload",
+        files={"audio": ("", b"RIFFfake", "audio/wav")},
+        headers={"X-Device-Token": "secret"},
+    )
+    assert resp.status_code in (400, 422)
+    assert resp.status_code < 500

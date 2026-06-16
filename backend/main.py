@@ -88,7 +88,9 @@ async def upload_audio(
     x_device_token: Optional[str] = Header(None),
 ):
     _check_auth(x_device_token)
-    if not audio.filename.endswith(".wav"):
+    # audio.filename can be None for a multipart part without a filename;
+    # coerce so a malformed upload returns a clean 400 rather than a 500.
+    if not (audio.filename or "").endswith(".wav"):
         raise HTTPException(status_code=400, detail="Only WAV files accepted")
     job_id    = str(uuid.uuid4())[:8]
     timestamp = datetime.now().isoformat()

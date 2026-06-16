@@ -23,17 +23,14 @@ The core loop: press a button, talk, get a note.
 
 ---
 
-## v0.2.0 — Backend durability (in progress)
+## ✅ v0.2.0 — Backend durability (2026-06-16)
 
-**Why:** The device never loses a recording now, but the backend still kept job state in memory, so a restart forgot in-flight jobs.
+**Why:** The device never loses a recording, but the backend kept job state in memory, so a restart forgot in-flight jobs.
 
-Shipped (2026-06-16):
-- ✅ Persistent job store on the backend (SQLite, `backend/jobs.py`) instead of the in-memory dict — job state now survives a backend restart
+- ✅ Persistent job store on the backend (SQLite, `backend/jobs.py`) instead of the in-memory dict — job state survives a backend restart
 - ✅ Graceful handling of Whisper API rate limits and timeouts (exponential backoff, honors `Retry-After`, configurable via `WHISPER_*` env vars)
 - ✅ `GET /jobs` endpoint to list recent notes from the backend
-
-Still planned:
-- Low-battery LED indicator (I2C ADC reading LiPo voltage) — device-side; deferred to a follow-up since it needs the hardware bench to verify
+- ✅ Low-battery LED indicator — optional I2C ADS1115 reads the LiPo voltage and flashes an amber idle cue below threshold (`BATTERY_MONITOR`)
 
 > Single-worker note: SQLite makes job state durable, but job *processing* still
 > runs as an in-process BackgroundTask, so the backend stays single-worker by

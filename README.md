@@ -19,7 +19,7 @@
 ## Features
 
 - 🎙️ **One-button recording** — short press to start/stop, long press to cancel
-- 💡 **LED status feedback** — red (recording), blinking green (uploading), solid green (done)
+- 💡 **LED status feedback** — red (recording), blinking green (uploading), solid green (done), amber (low battery, optional)
 - 🗣️ **AI transcription** — OpenAI Whisper API, accurate even with shower acoustics
 - 🧠 **Structured summarization** — title, summary, full transcript, and auto-tags via Claude or GPT
 - 🔌 **Pluggable destinations** — Apple Notes, Notion, Obsidian, Craft, or plain email
@@ -38,6 +38,8 @@
 | Suction cup or magnetic mount | $3 |
 
 **Total: ~$65** — See [docs/hardware-guide.md](docs/hardware-guide.md) for the full itemized BOM, wiring diagram, and enclosure tips.
+
+> Optional: add an **ADS1115 I2C ADC** (~$5) + a 2-resistor divider for the low-battery LED indicator. See the hardware guide.
 
 ## Quick Start
 
