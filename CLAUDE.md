@@ -160,7 +160,7 @@ Deliberate decisions from the v0.1.1 hardening pass. Changing any of them reintr
 - **The Obsidian webhook uses `verify=False` on purpose** (the Local REST API plugin serves a self-signed cert on localhost); the urllib3 warning is intentionally silenced.
 - **`audioop` is stdlib only through Python 3.12** (removed in 3.13+). Pi OS Bookworm ships 3.11. If you move to 3.13+, swap to `soxr` or `scipy.signal.resample_poly`.
 - **The enclosure is the Polycase WP-23** (gray polycarbonate, NEMA 4X / IP65), which replaced the discontinued WP-50. Keep the BOM and docs consistent on this part.
-- **All repo changes go through the GitHub API, never local `git push`** — see GitHub Push Workflow below.
+- **Repo changes are local-first** (as of 2026-06-16): edit the local clone, run the suites, then a human runs `git commit && git push`. The GitHub API is the backup. See GitHub Push Workflow below.
 
 ---
 
@@ -178,14 +178,22 @@ The device firmware is also unit-tested in `device/tests/` (`test_recorder.py` a
 
 ## GitHub Push Workflow
 
-This repo uses the GitHub API directly (not `git push`) for all file changes. The standard workflow:
+**Default: local-first** (as of 2026-06-16; faster than the API). The standard loop:
+
+1. Edit files in the local clone (it lives inside the connected Cowork project folder, so the agent's file tools can reach it).
+2. Run both test suites in the sandbox: `(cd backend && pytest) && (cd device && pytest)`.
+3. Hand the human a single `git add -A && git commit -m "…" && git push` to run on their Mac.
+
+The agent's sandbox never runs `git`: git's lock/hardlink operations fail on the FUSE-mounted folder ("could not lock config file … Operation not permitted"), and the sandbox can't authenticate a push. So cloning, committing, tagging, and pushing are all done by the human on their Mac (native filesystem, their credentials via `gh`/Keychain).
+
+**Backup — GitHub API** (use when away from the Mac or no local clone is available):
 
 1. Read the current file SHA via `get_file_contents`
 2. Base64-encode the new content
 3. Call `create_or_update_file` with the SHA to update, or omit SHA to create
 4. For multi-file changes, use `push_files` with a branch ref
 
-The `main` branch is the only branch; no PRs needed for solo work. The repo was initialized with a seed commit so `push_files` has a ref to target.
+The `main` branch is the only branch; no PRs needed for solo work. Note the API tools can create/update files but **cannot create tags or releases** — tag releases locally (`git tag vX.Y.Z && git push origin vX.Y.Z`) or via the GitHub Releases UI.
 
 ---
 
