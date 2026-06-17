@@ -1,0 +1,147 @@
+<svg viewBox="0 0 940 760" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <title id="title">Shower Thoughts — exploded assembly diagram</title>
+  <desc id="desc">Exploded view of the Shower Thoughts voice recorder. From front to back: the WP-23 front face with drilled button, mic and LED holes; the PTFE acoustic membrane, 16mm push button, RGB LED and micro-USB panel cable; the SPH0645 I2S microphone; the Raspberry Pi Zero 2W on M3 standoffs; the power cluster of LiPo battery, TP4056 charger and MT3608 boost converter; the gasketed base shell with mounting bosses; and the exterior magnetic mount plate. A numbered legend maps each layer to its assembly step.</desc>
+
+  <!-- backdrop -->
+  <rect x="0" y="0" width="940" height="760" fill="#ffffff"/>
+  <rect x="0" y="0" width="940" height="760" fill="none"/>
+
+  <style>
+    .lbl  { font-size: 13px; fill: #1f2937; }
+    .sub  { font-size: 11px; fill: #6b7280; }
+    .hd   { font-size: 18px; font-weight: 700; fill: #111827; }
+    .leg  { font-size: 12.5px; fill: #1f2937; }
+    .legs { font-size: 11px; fill: #6b7280; }
+    .lead { stroke: #9aa0a6; stroke-width: 1; fill: none; }
+    .axis { stroke: #c7ccd1; stroke-width: 1.4; stroke-dasharray: 5 5; }
+    .badge{ font-size: 12px; font-weight: 700; fill: #ffffff; }
+  </style>
+
+  <text x="40" y="44" class="hd">Shower Thoughts — Exploded Assembly</text>
+  <text x="40" y="64" class="sub">Polycase WP-23 enclosure · front face (top) to wall mount (bottom) · numbers map to the assembly steps at right</text>
+
+  <!-- assembly axis -->
+  <line class="axis" x1="250" y1="95" x2="250" y2="690"/>
+
+  <!-- ======================= LAYER 1: FRONT FACE / LID ======================= -->
+  <g>
+    <rect x="150" y="92" width="200" height="60" rx="9" fill="#bcc0c7" stroke="#878c93" stroke-width="1.5"/>
+    <rect x="158" y="100" width="184" height="44" rx="6" fill="none" stroke="#a7abb2" stroke-width="1"/>
+    <!-- drilled holes -->
+    <circle cx="210" cy="122" r="12" fill="#eef0f2" stroke="#7d8087" stroke-width="1.5"/>
+    <circle cx="262" cy="116" r="5" fill="#dfe2e6" stroke="#7d8087" stroke-width="1"/>
+    <circle cx="296" cy="116" r="5" fill="#dfe2e6" stroke="#7d8087" stroke-width="1"/>
+    <rect x="240" y="138" width="30" height="8" rx="4" fill="#9aa0a6"/>
+    <circle cx="172" cy="106" r="14" fill="#2f7d4f"/><text x="172" y="111" text-anchor="middle" class="badge">1</text>
+  </g>
+  <line class="lead" x1="350" y1="122" x2="470" y2="122"/>
+  <text x="476" y="118" class="lbl">Front face — drill holes</text>
+  <text x="476" y="134" class="sub">16mm button · 3mm mic · LED · USB slot</text>
+
+  <!-- ======================= LAYER 2: FRONT-MOUNTED PARTS ======================= -->
+  <g>
+    <!-- PTFE membrane -->
+    <circle cx="178" cy="198" r="13" fill="#f3f4f6" stroke="#9aa0a6" stroke-width="1"/>
+    <circle cx="178" cy="198" r="7" fill="#e2e5e9" stroke="#b6bac0" stroke-width="0.8"/>
+    <!-- button + o-ring -->
+    <circle cx="222" cy="200" r="17" fill="#c7cace" stroke="#7d8087" stroke-width="1.5"/>
+    <circle cx="222" cy="200" r="11" fill="#e3e5e8" stroke="#a7abb2" stroke-width="1"/>
+    <!-- RGB LED -->
+    <circle cx="262" cy="200" r="9" fill="#38c172" stroke="#1f8f4d" stroke-width="1"/>
+    <!-- USB panel cable -->
+    <rect x="286" y="190" width="34" height="20" rx="4" fill="#6b7280"/>
+    <rect x="290" y="195" width="22" height="10" rx="2" fill="#3f444b"/>
+    <circle cx="150" cy="200" r="14" fill="#2f7d4f"/><text x="150" y="205" text-anchor="middle" class="badge">2</text>
+  </g>
+  <line class="lead" x1="330" y1="200" x2="470" y2="200"/>
+  <text x="476" y="196" class="lbl">PTFE vent · button + o-ring · LED · USB cable</text>
+  <text x="476" y="212" class="sub">membrane inside over hole; button hex-nut from front</text>
+
+  <!-- ======================= LAYER 3: SPH0645 MIC ======================= -->
+  <g>
+    <rect x="206" y="248" width="88" height="44" rx="4" fill="#2c6e49" stroke="#1d5233" stroke-width="1.5"/>
+    <circle cx="250" cy="270" r="7" fill="#e8eaed" stroke="#1d5233" stroke-width="1"/>
+    <circle cx="250" cy="270" r="2.4" fill="#6b7280"/>
+    <text x="250" y="240" class="sub" text-anchor="middle">aligns under sound hole</text>
+    <circle cx="184" cy="270" r="14" fill="#2f7d4f"/><text x="184" y="275" text-anchor="middle" class="badge">3</text>
+  </g>
+  <line class="lead" x1="294" y1="270" x2="470" y2="270"/>
+  <text x="476" y="266" class="lbl">SPH0645 I2S microphone</text>
+  <text x="476" y="282" class="sub">wired to GPIO18/19/20, SEL→GND (left)</text>
+
+  <!-- ======================= LAYER 4: PI ZERO 2W ======================= -->
+  <g>
+    <rect x="170" y="312" width="160" height="92" rx="8" fill="#2c6e49" stroke="#1d5233" stroke-width="1.5"/>
+    <rect x="180" y="318" width="140" height="12" rx="2" fill="#26384a"/>
+    <g fill="#d9a441">
+      <circle cx="190" cy="324" r="1.5"/><circle cx="202" cy="324" r="1.5"/><circle cx="214" cy="324" r="1.5"/><circle cx="226" cy="324" r="1.5"/><circle cx="238" cy="324" r="1.5"/><circle cx="250" cy="324" r="1.5"/><circle cx="262" cy="324" r="1.5"/><circle cx="274" cy="324" r="1.5"/><circle cx="286" cy="324" r="1.5"/><circle cx="298" cy="324" r="1.5"/><circle cx="310" cy="324" r="1.5"/>
+    </g>
+    <rect x="232" y="352" width="34" height="34" rx="3" fill="#1a2733"/>
+    <!-- standoffs -->
+    <g fill="#9aa0a6" stroke="#6b7280" stroke-width="0.8"><circle cx="180" cy="394" r="4"/><circle cx="320" cy="394" r="4"/><circle cx="180" cy="322" r="4"/><circle cx="320" cy="322" r="4"/></g>
+    <text x="250" y="377" fill="#cfe6d7" font-size="11" text-anchor="middle">Pi Zero 2W</text>
+    <circle cx="150" cy="358" r="14" fill="#2f7d4f"/><text x="150" y="363" text-anchor="middle" class="badge">4</text>
+  </g>
+  <line class="lead" x1="330" y1="358" x2="470" y2="358"/>
+  <text x="476" y="354" class="lbl">Raspberry Pi Zero 2W</text>
+  <text x="476" y="370" class="sub">on M3 nylon standoffs → base bosses</text>
+
+  <!-- ======================= LAYER 5: POWER CLUSTER ======================= -->
+  <g>
+    <rect x="172" y="424" width="104" height="46" rx="6" fill="#c9ccd1" stroke="#9aa0a6" stroke-width="1.5"/>
+    <rect x="172" y="424" width="12" height="46" rx="6" fill="#b3b7bd"/>
+    <text x="226" y="451" class="sub" text-anchor="middle">1000 mAh LiPo</text>
+    <rect x="286" y="424" width="44" height="22" rx="3" fill="#c0392b" stroke="#922b21" stroke-width="1"/>
+    <text x="308" y="439" fill="#fff" font-size="8.5" text-anchor="middle">TP4056</text>
+    <rect x="286" y="450" width="44" height="20" rx="3" fill="#2b6cb0" stroke="#1f4e80" stroke-width="1"/>
+    <text x="308" y="464" fill="#fff" font-size="8.5" text-anchor="middle">MT3608</text>
+    <circle cx="150" cy="447" r="14" fill="#2f7d4f"/><text x="150" y="452" text-anchor="middle" class="badge">5</text>
+  </g>
+  <line class="lead" x1="330" y1="447" x2="470" y2="447"/>
+  <text x="476" y="443" class="lbl">Power cluster — foam-taped beside Pi</text>
+  <text x="476" y="459" class="sub">USB→TP4056→LiPo→MT3608 (set 5.1V!)→Pi 5V pin</text>
+
+  <!-- ======================= LAYER 6: BASE SHELL + GASKET ======================= -->
+  <g>
+    <rect x="150" y="492" width="200" height="74" rx="10" fill="#cfd3d8" stroke="#878c93" stroke-width="2"/>
+    <rect x="160" y="500" width="180" height="58" rx="6" fill="#e3e5e8" stroke="#a7abb2" stroke-width="1" stroke-dasharray="4 3"/>
+    <g fill="#c2c6cc" stroke="#9aa0a6" stroke-width="1">
+      <circle cx="172" cy="512" r="5"/><circle cx="328" cy="512" r="5"/><circle cx="172" cy="546" r="5"/><circle cx="328" cy="546" r="5"/>
+    </g>
+    <text x="250" y="533" class="sub" text-anchor="middle">silicone gasket (dashed)</text>
+    <circle cx="368" cy="529" r="14" fill="#2f7d4f"/><text x="368" y="534" text-anchor="middle" class="badge">6</text>
+  </g>
+  <line class="lead" x1="382" y1="529" x2="470" y2="529"/>
+  <text x="476" y="525" class="lbl">WP-23 base shell</text>
+  <text x="476" y="541" class="sub">4 mounting bosses · seal USB slot w/ RTV</text>
+
+  <!-- ======================= LAYER 7: MAGNET MOUNT ======================= -->
+  <g>
+    <rect x="170" y="600" width="160" height="40" rx="8" fill="#8d9299" stroke="#6b7280" stroke-width="1.5"/>
+    <circle cx="210" cy="620" r="8" fill="#a7abb2"/><circle cx="290" cy="620" r="8" fill="#a7abb2"/>
+    <text x="250" y="624" fill="#f3f4f6" font-size="11" text-anchor="middle">neodymium plate</text>
+    <circle cx="150" cy="620" r="14" fill="#2f7d4f"/><text x="150" y="625" text-anchor="middle" class="badge">7</text>
+  </g>
+  <line class="lead" x1="330" y1="620" x2="470" y2="620"/>
+  <text x="476" y="616" class="lbl">Magnetic wall mount</text>
+  <text x="476" y="632" class="sub">tile plate + enclosure plate — pops off to charge</text>
+
+  <!-- divider -->
+  <line x1="40" y1="668" x2="900" y2="668" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- ======================= ASSEMBLY STEP LEGEND ======================= -->
+  <text x="40" y="694" class="lbl" font-weight="700">Assembly order</text>
+  <g class="legs">
+    <text x="40" y="714"><tspan fill="#2f7d4f" font-weight="700">1</tspan>  Drill 16mm button + 3mm mic holes (step bit)</text>
+    <text x="40" y="732"><tspan fill="#2f7d4f" font-weight="700">2</tspan>  Stick PTFE vent inside; fit button + LED + USB</text>
+    <text x="40" y="750"><tspan fill="#2f7d4f" font-weight="700">3</tspan>  Mount SPH0645 over the sound hole</text>
+
+    <text x="350" y="714"><tspan fill="#2f7d4f" font-weight="700">4</tspan>  Pi Zero 2W on M3 standoffs to the bosses</text>
+    <text x="350" y="732"><tspan fill="#2f7d4f" font-weight="700">5</tspan>  Foam-tape LiPo; wire TP4056 → MT3608 (5.1V)</text>
+    <text x="350" y="750"><tspan fill="#2f7d4f" font-weight="700">6</tspan>  RTV-seal USB slot; close lid on the gasket</text>
+
+    <text x="660" y="714"><tspan fill="#2f7d4f" font-weight="700">7</tspan>  Stick magnet plates; hang on tile</text>
+    <text x="660" y="732" fill="#b45309">⚠ Set MT3608 to 5.0–5.1V before wiring the Pi</text>
+    <text x="660" y="750" fill="#b45309">⚠ LiPo only — never mains power in a shower</text>
+  </g>
+</svg>

@@ -116,6 +116,10 @@ Connect the MT3608 input to the LiPo's positive terminal (via the TP4056 output)
 
 **Polycase WP-23** is a 4.5" × 3.5" × 2.1" gray polycarbonate box rated NEMA 4X / IP65 (dust-tight, water-jet resistant), with a silicone cover gasket. That's enough for a shower; you don't need IP67/68 unless you're mounting it inside the spray zone.
 
+![Exploded assembly diagram: WP-23 front face, button/LED/mic/USB parts, SPH0645 mic, Pi Zero 2W on standoffs, LiPo + TP4056 + MT3608 power cluster, gasketed base shell, and magnetic wall mount — numbered to the assembly steps below.](assembly-diagram.svg)
+
+*Exploded view, front face (top) to wall mount (bottom). The numbered layers map 1:1 to the assembly order below.*
+
 Assembly order:
 
 1. Drill button hole (16mm) on the front face using a step bit
