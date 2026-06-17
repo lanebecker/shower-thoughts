@@ -233,6 +233,8 @@ LiPo+ → 100kΩ → GPIO1 (ADC1) → 100kΩ → GND     (divider ratio 2.0)
   set BATTERY_ADC_PIN=1 in config.txt; the ESP32 ADC reads it directly (no ADS1115)
 ```
 
+> **Diagrams verified against firmware on 2026-06-16.** The pin assignments in the ESP32-S3 figures above were cross-checked against `device-esp32/recorder.py` (I2S: SD→GPIO11, SCK→GPIO12, WS→GPIO13), `device-esp32/main.py` (button GPIO14; LED GPIO4/5/6), and the configurable battery ADC (`BATTERY_ADC_PIN`, recommended GPIO1). If you change a constant in the firmware, update this table **and** re-export the matching `esp32-*.svg`.
+
 Notes:
 - **ADC1 pins** on the S3 are GPIO1–GPIO10; the battery divider must feed one of
   those. The divider halves the 4.2 V max LiPo to ~2.1 V. The S3 ADC is non-linear
