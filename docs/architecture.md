@@ -40,6 +40,16 @@
 └─────────────────────────────────────────────────────┘
 ```
 
+> **Two device implementations, one backend contract.** The diagram shows the
+> Raspberry Pi firmware (`device/`), the proven reference build. A second firmware
+> for the **ESP32-S3** (`device-esp32/`, MicroPython) is in progress for v0.3.0 and
+> speaks the *same* `POST /upload` multipart contract — so everything from the
+> backend rightward is identical regardless of which board is in the enclosure. The
+> ESP32 port adds microamp deep sleep (weeks of standby vs. the Pi's hours); its
+> logic is host-tested but on-device bring-up is still pending. See
+> [`esp32-port-plan.md`](esp32-port-plan.md). The component reference below
+> describes the Pi firmware; the ESP32 module map lives in the port plan.
+
 ## Component Reference
 
 ### `device/recorder.py`
@@ -173,10 +183,11 @@ shower-thoughts/
 ├── .github/workflows/tests.yml      — CI: runs both test suites
 ├── docs/
 │   ├── architecture.md              ← you are here
-│   ├── hardware-guide.md            — BOM, wiring, enclosure
+│   ├── hardware-guide.md            — BOM, wiring, enclosure (Pi + ESP32-S3)
 │   ├── setup-guide.md               — Pi bring-up and backend install
+│   ├── esp32-port-plan.md           — v0.3.0 ESP32-S3 firmware scope + bench checklist
 │   └── roadmap.md                   — versioned feature plan
-├── device/
+├── device/                          — Raspberry Pi firmware (proven reference build)
 │   ├── recorder.py                  — firmware (runs on Pi)
 │   ├── install.sh                   — Pi provisioning script
 │   ├── firstrun.sh                  — guided hardware bring-up check
@@ -187,6 +198,11 @@ shower-thoughts/
 │   └── tests/
 │       ├── test_recorder.py         — buffer/flush/upload helpers
 │       └── test_battery.py          — optional low-battery monitor
+├── device-esp32/                    — ESP32-S3 firmware (MicroPython, v0.3.0 in progress)
+│   ├── *.py                         — wavfile/audio/buffer/uploader/config/leds/
+│   │                                  button/power/battery/rtcstate + recorder/main
+│   ├── conftest.py                  — host stubs for machine/network/esp32/urequests
+│   └── tests/                       — 43 host tests over the pure logic modules
 └── backend/
     ├── main.py                      — FastAPI app
     ├── jobs.py                      — SQLite persistent job store
@@ -215,6 +231,7 @@ shower-thoughts/
 
 ## What's Not Yet Implemented
 
+- **ESP32-S3 on-device bring-up** — the MicroPython firmware (`device-esp32/`) is host-tested but not yet flashed/validated on real hardware; deep sleep, wake-on-button, I2S capture, and live upload are bench-pending (v0.3.0)
 - **Local Whisper** — transcriber.py has a stub; requires Pi 4 or beefier hardware for acceptable speed
 - **Multi-device support** — backend is single-user; no device namespacing on notes
 - **Web review UI** — no way to see or edit a note before it's dispatched

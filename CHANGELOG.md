@@ -7,7 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **Documentation reframed for two first-class device platforms.** The ESP32-S3 is now presented as the project's **recommended direction** (its deep-sleep battery win), with the **Raspberry Pi as the proven reference build**, across the README, hardware guide, architecture, setup guide, roadmap, and `CLAUDE.md`. The hardware guide's "ESP32 Alternative" section became "ESP32-S3 build (recommended for battery life)." This is a **framing change only** — no version bump, no priority swap, and the Pi is *not* demoted. ESP32 battery/standby figures are labelled *by spec, not yet measured*; the formal primary/secondary swap is deferred until v0.3.0 passes on-device bench bring-up.
+- Corrected the ESP32 host-test count to **43** in `docs/esp32-port-plan.md` (one stale reference said 34).
 
 ## [0.2.0] - 2026-06-16
 

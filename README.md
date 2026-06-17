@@ -7,14 +7,35 @@
 ## How it works
 
 ```
-[Waterproof Button] → [RPi Zero 2W] → WiFi → [Backend API]
-                                                    ↓
-                                              [Whisper API]
-                                                    ↓
-                                           [Claude / GPT-4o-mini]
-                                                    ↓
-                              [Apple Notes / Notion / Obsidian / Craft / Email]
+[Waterproof Button] → [Pi Zero 2W  ·or·  ESP32-S3] → WiFi → [Backend API]
+                                                                  ↓
+                                                            [Whisper API]
+                                                                  ↓
+                                                         [Claude / GPT-4o-mini]
+                                                                  ↓
+                            [Apple Notes / Notion / Obsidian / Craft / Email]
 ```
+
+## Hardware platforms
+
+ShowerThoughts has **two first-class device builds**, both speaking the exact same
+backend contract (`POST /upload`), so the choice is purely about the hardware in
+the enclosure:
+
+| | **Raspberry Pi Zero 2W** | **ESP32-S3** |
+|-|--------------------------|--------------|
+| Status | ✅ **Proven** — shipped since v0.1.0, build it today | 🚧 **In progress** (v0.3.0) — firmware host-tested, on-device bench bring-up pending |
+| Firmware | `device/` (Python) | `device-esp32/` (MicroPython) |
+| Standby battery (1000 mAh) | ~6–8 h (≈ daily charge) | weeks, by spec (deep sleep) |
+| Wake | always-on; ~30–40 s boot | instant wake-on-button |
+
+The **Pi is the reference build** — fully documented and runnable end-to-end right
+now. The **ESP32-S3 is the direction the project is heading**: its microamp deep
+sleep turns the device from "always plugged in" into "grab it, press, talk, put it
+back." The firmware logic is written and host-tested (43 tests); what remains is
+bench bring-up on real silicon, so the battery numbers above are *by spec, not yet
+measured*. See the [roadmap](docs/roadmap.md) and the
+[ESP32 port plan](docs/esp32-port-plan.md) for status.
 
 ## Features
 
@@ -26,6 +47,8 @@
 - 🔒 **Privacy-conscious** — audio is used only for the active job and never persisted on the backend afterward (cloud transcription today; on-device Whisper is on the roadmap)
 
 ## Hardware (Quick Reference)
+
+The reference **Raspberry Pi** build (the one you can assemble today):
 
 | Part | ~Cost |
 |------|-------|
@@ -40,10 +63,12 @@
 **Total: ~$65** — See [docs/hardware-guide.md](docs/hardware-guide.md) for the full itemized BOM, wiring diagram, and enclosure tips.
 
 > Optional: add an **ADS1115 I2C ADC** (~$5) + a 2-resistor divider for the low-battery LED indicator. See the hardware guide.
+>
+> Building the **ESP32-S3** variant instead? It reuses the same enclosure, button, LED, and power path — only the board (ESP32-S3-DevKitC-1 N16R8, ~$5) and mic (INMP441) change, and the ESP32's native ADC reads the battery directly so the ADS1115 isn't needed. Full ESP32 BOM and wiring live in the [hardware guide](docs/hardware-guide.md#esp32-s3-build-recommended-for-battery-life) and the [port plan](docs/esp32-port-plan.md).
 
 ## Quick Start
 
-### Device (Raspberry Pi)
+### Device (Raspberry Pi — the proven build)
 
 ```bash
 git clone https://github.com/lanebecker/shower-thoughts.git
@@ -55,6 +80,15 @@ nano .env            # set BACKEND_URL to your server's address
 chmod +x install.sh && sudo bash install.sh
 sudo reboot
 ```
+
+### Device (ESP32-S3 — in progress)
+
+The MicroPython firmware lives in [`device-esp32/`](device-esp32/) and the logic is
+host-tested today, but on-device flashing/bring-up is still being validated — treat
+it as a build-along, not a finished path. See
+[`device-esp32/README.md`](device-esp32/README.md) for the current status and the
+flashing steps, and the [port plan](docs/esp32-port-plan.md) for what's left before
+it becomes the recommended default.
 
 ### Backend
 
@@ -106,7 +140,8 @@ See `backend/.env.example` for all adapter-specific variables.
 ## Documentation
 
 - [Architecture](docs/architecture.md) — system diagram, component reference, data flows, file map
-- [Hardware Guide](docs/hardware-guide.md) — full BOM, wiring, enclosure sealing, ESP32 alternative
+- [Hardware Guide](docs/hardware-guide.md) — full BOM, wiring, enclosure sealing, for both the Pi and ESP32-S3 builds
+- [ESP32 Port Plan](docs/esp32-port-plan.md) — scope, status, and bench checklist for the v0.3.0 ESP32-S3 firmware
 - [Setup Guide](docs/setup-guide.md) — Pi bring-up, backend install, systemd, troubleshooting
 - [Roadmap](docs/roadmap.md) — versioned feature plan
 

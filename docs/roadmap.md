@@ -40,6 +40,19 @@ The core loop: press a button, talk, get a note.
 
 ## v0.3.0 — ESP32 firmware port
 
+**Status (2026-06-17):** in progress. All hardware-independent logic for Phases 1
+and 2 is built and host-tested (43 tests in `device-esp32/`); `recorder.py` and
+`main.py` are flash-ready skeletons. What remains is on-device bench bring-up
+(I2S capture, Wi-Fi, real upload, deep-sleep/wake). Not yet shipped.
+
+**Platform direction:** the ESP32-S3 is intended to become the **recommended
+primary platform** once bench bring-up proves the battery win on real hardware. The
+Raspberry Pi stays a **first-class, fully-supported target** (it's the proven
+reference build today). Until v0.3.0 is bench-verified, the docs frame both as
+first-class with the Pi as the reference — the formal primary/secondary swap is
+deliberately deferred so we never demote a working platform on the strength of an
+unverified one. Battery/standby figures for the ESP32 remain *by spec until measured*.
+
 **Why:** The Pi Zero 2W has two real-world problems as a battery device. It idles around 80 mA, so a 1000 mAh cell lasts only ~6–8 hours of standby (a roughly daily charge), and it takes ~30–40 s to boot — so you can't power it down between uses to save that battery. An ESP32-S3 fixes both at once: microamp deep sleep for weeks of standby, and instant wake-on-button. That makes the device genuinely livable, so it's pulled ahead of the nice-to-haves.
 
 Planned:

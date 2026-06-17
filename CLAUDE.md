@@ -130,12 +130,20 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 7. `adapters/registry.py` loads the configured adapter and calls `.send(note)`
 8. Note appears in the destination app; LED goes solid green on device
 
+> **Two device firmwares, one backend contract.** The diagram above is the
+> Raspberry Pi firmware (`device/`) — the proven reference build. An ESP32-S3
+> firmware (`device-esp32/`, MicroPython) is in progress for v0.3.0 and speaks the
+> *same* `POST /upload` multipart contract, so the backend and everything downstream
+> are board-agnostic. Treat both `device/` and `device-esp32/` as first-class; see
+> the Roadmap note below for the platform-priority direction.
+
 ### Source files
 
 | File | Role |
 |------|------|
-| `device/recorder.py` | GPIO, audio capture, HTTP upload |
+| `device/recorder.py` | GPIO, audio capture, HTTP upload (Raspberry Pi firmware) |
 | `device/install.sh` | Pi provisioning (I2S, systemd) |
+| `device-esp32/*.py` | ESP32-S3 MicroPython firmware (v0.3.0, in progress; host-tested logic + flash-ready `recorder.py`/`main.py`) |
 | `backend/main.py` | FastAPI routes (`/upload`, `/job/{id}`, `/jobs`, `/health`) and job orchestration |
 | `backend/jobs.py` | `JobStore` — persistent SQLite job store (replaces the in-memory dict) |
 | `backend/transcriber.py` | Whisper API wrapper |
@@ -202,3 +210,7 @@ The `main` branch is the only branch; no PRs needed for solo work. Note the API 
 See [`docs/roadmap.md`](docs/roadmap.md) for the full versioned plan.
 
 **v0.2.0 — Backend durability** ✅ complete (2026-06-16): persistent SQLite job store, `GET /jobs`, Whisper rate-limit/timeout handling, and the optional low-battery LED (I2C ADS1115) all shipped. Next milestones: ESP32-S3 port (v0.3.0), local transcription (v0.4.0).
+
+**v0.3.0 — ESP32-S3 port** 🚧 in progress: hardware-independent logic is host-tested (43 tests in `device-esp32/`); `recorder.py`/`main.py` are flash-ready skeletons; on-device bench bring-up (I2S, Wi-Fi, upload, deep-sleep/wake) is pending.
+
+**Platform-priority direction (decided 2026-06-17):** the ESP32-S3 is intended to become the **recommended primary platform** once v0.3.0 is bench-verified, on the strength of its deep-sleep battery win. Until then, **the Pi stays the proven reference build and both targets are documented as first-class** — the formal primary/secondary swap (demoting the Pi, version-bumping, rewriting quick-starts around the ESP32) is deliberately deferred so we don't demote a working platform for an unverified one. When writing docs, keep the ESP32's battery/standby numbers framed as *by spec, not yet measured*. Don't mark v0.3.0 shipped or call the Pi "legacy" until Lane confirms a green bench bring-up.

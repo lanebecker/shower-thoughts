@@ -2,6 +2,14 @@
 
 End-to-end instructions for building and running a ShowerThoughts unit. Covers Pi hardware bring-up, backend install, and systemd configuration.
 
+> **Which device?** This guide covers the **Raspberry Pi build** — the proven,
+> buildable-today path. The **ESP32-S3 build** (the project's recommended direction
+> for battery life) is still in on-device bring-up; its flashing and bench steps
+> live in [`../device-esp32/README.md`](../device-esp32/README.md) and the
+> [ESP32 port plan](esp32-port-plan.md), and aren't reproduced here yet. **Part 2
+> (Backend) and Part 3 (Notes Adapters) below apply to both** — the backend is
+> identical regardless of which board you build.
+
 ---
 
 ## Part 1: Raspberry Pi Setup

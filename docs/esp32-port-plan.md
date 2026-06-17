@@ -1,8 +1,8 @@
 # v0.3.0 — ESP32-S3 Firmware Port (Plan)
 
 Status: **in progress** (2026-06-16) — all hardware-independent logic for Phase 1
-*and* Phase 2 is built and host-tested in `device-esp32/` (34 tests: `wavfile`,
-`buffer`, `uploader` body, `config`, `leds`, `button`, `power`, `battery`,
+*and* Phase 2 is built and host-tested in `device-esp32/` (43 tests: `wavfile`,
+`audio`, `buffer`, `uploader` body, `config`, `leds`, `button`, `power`, `battery`,
 `rtcstate`), and `recorder.py`/`main.py` are flash-ready skeletons wired to it.
 What remains is on-device bench bring-up. This document scopes the v0.3.0 milestone from
 [`roadmap.md`](roadmap.md): a MicroPython firmware for the ESP32-S3 that reaches

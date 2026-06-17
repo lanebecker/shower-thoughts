@@ -4,6 +4,12 @@ MicroPython firmware for the ESP32-S3 port. Goal: feature parity with the Pi
 firmware in [`../device/`](../device/) plus deep-sleep battery life. See the full
 plan in [`../docs/esp32-port-plan.md`](../docs/esp32-port-plan.md).
 
+This is the **platform the project is heading toward** — once bench bring-up proves
+the deep-sleep battery win on real hardware, the ESP32-S3 becomes the recommended
+primary build. Until then the Pi firmware in [`../device/`](../device/) is the
+proven reference, and both are first-class. (The battery/standby figures here are
+*by spec, not yet measured*.)
+
 > **Status:** All hardware-independent logic for Phase 1 *and* Phase 2 is built
 > and host-tested (43 tests), and the on-device modules (`recorder.py`, `main.py`)
 > are drafted as flash-ready skeletons. What's left is bench bring-up once the

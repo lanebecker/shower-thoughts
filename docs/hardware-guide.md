@@ -1,18 +1,39 @@
 # Hardware Guide
 
+## Two platforms
+
+ShowerThoughts is built around **two first-class device platforms** that share the
+same enclosure, controls, power path, and backend contract:
+
+- **Raspberry Pi Zero 2W** — the **proven reference build**, shipped and documented
+  end-to-end. This guide's BOM, wiring, and enclosure steps below are written for
+  it; build this if you want a working device today.
+- **ESP32-S3** — the **recommended direction for battery life** (microamp deep
+  sleep → weeks of standby and instant wake, versus the Pi's ~6–8 h and ~30–40 s
+  boot). The firmware is host-tested but bench bring-up is still pending, so its
+  numbers are *by spec, not yet measured*. Its wiring and BOM are in
+  [ESP32-S3 build](#esp32-s3-build-recommended-for-battery-life) below.
+
+Most of this guide (enclosure, mounting, power, sealing) applies to both; only the
+board, mic, and GPIO wiring differ.
+
 ## Figures
 
 - [Assembled prototype (exterior render)](exterior-render.svg) — what the finished device looks like mounted on the wall. See [Enclosure Assembly](#enclosure-assembly).
 - [Exploded assembly diagram](assembly-diagram.svg) — the seven layers front-to-back, numbered to the [assembly steps](#enclosure-assembly).
 - [Interior cutaway](interior-cutaway.svg) — top-down component layout with GPIO/pin wiring legend. Cross-check against the [Wiring](#wiring) tables.
 
-ESP32-S3 build (see [ESP32 Alternative](#esp32-alternative)):
+ESP32-S3 build (see [ESP32-S3 build](#esp32-s3-build-recommended-for-battery-life)):
 
 - [ESP32-S3 exterior render](esp32-exterior-render.svg) — same enclosure, deep-sleep/instant-wake build.
 - [ESP32-S3 exploded assembly](esp32-assembly-diagram.svg) — INMP441 mic, ESP32-S3-DevKitC-1, button with external pull-up.
 - [ESP32-S3 interior cutaway](esp32-interior-cutaway.svg) — top-down layout with the ESP32-S3 GPIO legend.
 
 ## Bill of Materials
+
+This is the **Raspberry Pi reference build** BOM. The ESP32-S3 build swaps the board
+and mic (and drops the ADS1115); its delta is listed under
+[ESP32-S3 build](#esp32-s3-build-recommended-for-battery-life).
 
 | # | Part | Source | ~Cost |
 |---|------|--------|---------|
@@ -166,23 +187,39 @@ Recommended: adhesive neodymium plate on the tile + matching plate on the enclos
 
 ---
 
-## ESP32 Alternative
+## ESP32-S3 build (recommended for battery life)
 
-If battery life or cost is a priority, an **ESP32-S3** is a capable alternative:
+The **ESP32-S3 is the platform the project is moving toward**, and for one decisive
+reason: battery life. The Pi Zero 2W idles around 80 mA, so a 1000 mAh cell lasts
+only ~6–8 hours of standby (a roughly daily charge), and because it takes ~30–40 s
+to boot you can't power it down between uses to claw that back. An ESP32-S3
+deep-sleeps at ~10 µA — weeks of standby — and wakes from a button press in
+milliseconds. That turns the device from "always plugged in" into "grab it, press,
+talk, put it back."
 
 | | RPi Zero 2W | ESP32-S3 |
 |-|-------------|----------|
 | Cost | ~$15 | ~$5 |
 | OS | Linux (full Python) | Bare metal / MicroPython |
 | I2S mic | ✅ easy | ✅ native support |
-| Firmware language | Python | C / MicroPython |
+| Firmware language | Python | MicroPython |
 | Sleep current | ~80 mA (idle) | ~10 µA (deep sleep) |
-| Battery life (1000 mAh) | ~6–8 hours | Weeks |
+| Battery life (1000 mAh) | ~6–8 hours | Weeks *(by spec)* |
 | Setup complexity | Moderate | Higher |
+| Status | ✅ proven (v0.1.0) | 🚧 in progress (v0.3.0) |
 
-With an ESP32 you'd need to rewrite the firmware in MicroPython or C, implement HTTP multipart upload manually, and handle the sleep/wake cycle. The trade-off is dramatically better battery life — the Pi Zero 2W idles around 80 mA, so a 1000 mAh cell only lasts ~6–8 hours of standby (a roughly daily charge). It also wakes instantly on a button press, whereas the Pi takes ~30–40 s to boot — so with the Pi you have to leave it powered on (and charging) between uses rather than sleeping it.
+**Status (be clear-eyed):** the firmware logic is written and host-tested
+(43 tests in [`../device-esp32/`](../device-esp32/)), and `recorder.py`/`main.py`
+are flash-ready skeletons — but it has not yet run on real silicon. The battery and
+wake figures above are *manufacturer spec, not measured*; deep sleep, wake-on-button,
+I2S capture, and real upload all still need bench bring-up. Until that lands, the
+**Pi remains the proven reference build**. The full plan and bench checklist are in
+[`../docs/esp32-port-plan.md`](esp32-port-plan.md).
 
-An ESP32-S3-DevKitC-1 (N16R8 variant) with the INMP441 I2S mic breakout is the recommended ESP32 combination.
+An ESP32-S3-DevKitC-1 (N16R8 variant) with the INMP441 I2S mic breakout is the
+recommended ESP32 combination. Building it means rewriting the firmware in
+MicroPython (done — see `device-esp32/`), constructing the HTTP multipart upload by
+hand (`urequests` has no multipart support), and handling the deep-sleep/wake cycle.
 
 ### ESP32-S3 figures
 
