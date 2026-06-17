@@ -6,6 +6,12 @@
 - [Exploded assembly diagram](assembly-diagram.svg) — the seven layers front-to-back, numbered to the [assembly steps](#enclosure-assembly).
 - [Interior cutaway](interior-cutaway.svg) — top-down component layout with GPIO/pin wiring legend. Cross-check against the [Wiring](#wiring) tables.
 
+ESP32-S3 build (see [ESP32 Alternative](#esp32-alternative)):
+
+- [ESP32-S3 exterior render](esp32-exterior-render.svg) — same enclosure, deep-sleep/instant-wake build.
+- [ESP32-S3 exploded assembly](esp32-assembly-diagram.svg) — INMP441 mic, ESP32-S3-DevKitC-1, button with external pull-up.
+- [ESP32-S3 interior cutaway](esp32-interior-cutaway.svg) — top-down layout with the ESP32-S3 GPIO legend.
+
 ## Bill of Materials
 
 | # | Part | Source | ~Cost |
@@ -177,6 +183,22 @@ If battery life or cost is a priority, an **ESP32-S3** is a capable alternative:
 With an ESP32 you'd need to rewrite the firmware in MicroPython or C, implement HTTP multipart upload manually, and handle the sleep/wake cycle. The trade-off is dramatically better battery life — the Pi Zero 2W idles around 80 mA, so a 1000 mAh cell only lasts ~6–8 hours of standby (a roughly daily charge). It also wakes instantly on a button press, whereas the Pi takes ~30–40 s to boot — so with the Pi you have to leave it powered on (and charging) between uses rather than sleeping it.
 
 An ESP32-S3-DevKitC-1 (N16R8 variant) with the INMP441 I2S mic breakout is the recommended ESP32 combination.
+
+### ESP32-S3 figures
+
+The build reuses the same WP-23 enclosure, button, LED, mic hole and power path as the Pi version — only the board (ESP32-S3-DevKitC-1), the mic (INMP441), and the GPIO wiring change. Two ESP32-specific wrinkles to note in the diagrams: the button must sit on an **RTC GPIO (GPIO14)** so it can wake the chip from deep sleep, and it needs an **external ~100 kΩ pull-up to 3V3** because the internal pull-up powers down while sleeping.
+
+![Assembled prototype, ESP32-S3 build, mounted on shower tile: the same sealed WP-23 enclosure and front-face controls as the Pi version, with a caption noting the ESP32-S3 deep-sleeps at about 10 microamps for weeks per charge.](esp32-exterior-render.svg)
+
+*Externally identical to the Pi build — same enclosure and controls. The win is internal: deep sleep and instant wake.*
+
+![Exploded assembly diagram for the ESP32-S3 build: WP-23 front face, button with external 100k pull-up, LED, USB cable, INMP441 mic, ESP32-S3-DevKitC-1 on standoffs, LiPo + TP4056 + MT3608 power cluster, gasketed base shell, and magnetic mount — numbered to the assembly steps.](esp32-assembly-diagram.svg)
+
+*Exploded view. Same layer order as the Pi build; swapped board and mic, plus the button's external pull-up.*
+
+![Interior cutaway for the ESP32-S3 build, top-down with the lid removed: INMP441 mic under the sound hole, ESP32-S3-DevKitC-1 in the center, LiPo on the left, TP4056 and MT3608 on the right, with a legend of the ESP32-S3 GPIO assignments and the optional battery-sense divider.](esp32-interior-cutaway.svg)
+
+*Interior layout with the full ESP32-S3 GPIO legend. Cross-check against the wiring table just below.*
 
 ### ESP32-S3 wiring (v0.3.0)
 

@@ -1,0 +1,78 @@
+<svg viewBox="0 0 576 640" width="576" height="640" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <title id="title">Shower Thoughts (ESP32-S3 build) — assembled prototype mounted on shower tile</title>
+  <desc id="desc">The ESP32-S3 variant in the same gray Polycase WP-23 enclosure, mounted on a tiled shower wall by a magnetic plate. The front face is identical to the Pi build: an RGB status LED, a 3mm microphone sound hole with PTFE vent, a 16mm IP67 push button, and a silicone-sealed micro-USB charging port. The difference is internal — the ESP32-S3 deep-sleeps at about 10 microamps for weeks per charge and wakes instantly on a button press.</desc>
+
+  <rect x="0" y="0" width="576" height="640" fill="#ffffff"/>
+  <g transform="translate(48,0)">
+
+  <text x="40" y="34" font-size="16" font-weight="700" fill="#111827">Assembled prototype — ESP32-S3 build</text>
+  <text x="40" y="52" font-size="11" fill="#6b7280">Identical WP-23 enclosure &amp; controls — the difference is inside (deep sleep, instant wake)</text>
+
+  <!-- tile wall -->
+  <rect x="40" y="66" width="400" height="500" rx="4" fill="#e8eef1"/>
+  <g stroke="#d2dde2" stroke-width="2">
+    <line x1="40" y1="191" x2="440" y2="191"/>
+    <line x1="40" y1="316" x2="440" y2="316"/>
+    <line x1="40" y1="441" x2="440" y2="441"/>
+    <line x1="173" y1="66" x2="173" y2="566"/>
+    <line x1="307" y1="66" x2="307" y2="566"/>
+  </g>
+  <g fill="#bcd2db">
+    <circle cx="95" cy="130" r="3"/><circle cx="400" cy="255" r="2.5"/>
+    <circle cx="120" cy="430" r="2.5"/><circle cx="390" cy="510" r="3"/><circle cx="80" cy="510" r="2"/>
+  </g>
+
+  <!-- magnetic mount plate behind -->
+  <rect x="120" y="128" width="205" height="360" rx="10" fill="#8d9299"/>
+
+  <!-- enclosure depth faces (iso hint) -->
+  <polygon points="110,128 130,110 335,110 315,128" fill="#ccd0d6"/>
+  <polygon points="315,128 335,110 335,476 315,494" fill="#9a9ea5"/>
+  <!-- front face -->
+  <rect x="110" y="128" width="205" height="366" rx="8" fill="#bcc0c7" stroke="#878c93" stroke-width="1.5"/>
+  <rect x="118" y="136" width="189" height="350" rx="6" fill="none" stroke="#a7abb2" stroke-width="1.5"/>
+
+  <!-- RGB LED (green = ready) -->
+  <circle cx="175" cy="176" r="14" fill="#38c172" opacity="0.25"/>
+  <circle cx="175" cy="176" r="7" fill="#2fb866" stroke="#1f8f4d" stroke-width="1"/>
+  <!-- mic sound hole + PTFE vent rings -->
+  <circle cx="250" cy="176" r="10" fill="#e8eaed" stroke="#878c93" stroke-width="1"/>
+  <circle cx="250" cy="176" r="6" fill="#d4d7dc" stroke="#9a9ea5" stroke-width="0.8"/>
+  <circle cx="250" cy="176" r="2.2" fill="#6b7280"/>
+  <!-- 16mm push button -->
+  <circle cx="212" cy="318" r="42" fill="#c7cace" stroke="#7d8087" stroke-width="2"/>
+  <circle cx="212" cy="318" r="33" fill="#d9dce0" stroke="#9a9ea5" stroke-width="1.5"/>
+  <circle cx="212" cy="318" r="24" fill="#eef0f2" stroke="#b6bac0" stroke-width="1"/>
+  <circle cx="212" cy="318" r="6" fill="#bcc0c7"/>
+  <!-- micro-USB charge port (bottom, sealed) -->
+  <rect x="190" y="466" width="44" height="11" rx="5" fill="#6b7280"/>
+  <rect x="197" y="469" width="30" height="5" rx="2.5" fill="#3f444b"/>
+  <!-- brand etch -->
+  <text x="212" y="428" font-size="11" fill="#6b7280" text-anchor="middle" letter-spacing="1.5" opacity="0.7">shower thoughts</text>
+
+  <!-- leader labels -->
+  <line x1="175" y1="176" x2="78" y2="118" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="76" y="114" font-size="12" fill="#1f2937" text-anchor="end">RGB status LED</text>
+  <text x="76" y="129" font-size="10" fill="#6b7280" text-anchor="end">wakes on press</text>
+
+  <line x1="250" y1="176" x2="400" y2="126" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="404" y="122" font-size="12" fill="#1f2937">Mic sound hole</text>
+  <text x="404" y="137" font-size="10" fill="#6b7280">3mm + PTFE vent</text>
+
+  <line x1="254" y1="318" x2="402" y2="318" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="406" y="314" font-size="12" fill="#1f2937">16mm button</text>
+  <text x="406" y="329" font-size="10" fill="#6b7280">wake + start/stop</text>
+
+  <line x1="212" y1="477" x2="402" y2="453" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="406" y="449" font-size="12" fill="#1f2937">Micro-USB port</text>
+  <text x="406" y="464" font-size="10" fill="#6b7280">RTV-sealed slot</text>
+
+  <line x1="120" y1="448" x2="70" y2="468" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="68" y="464" font-size="12" fill="#1f2937" text-anchor="end">Magnet plate</text>
+  <text x="68" y="479" font-size="10" fill="#6b7280" text-anchor="end">snaps off to charge</text>
+
+  <text x="212" y="528" font-size="12" fill="#6b7280" text-anchor="middle">Polycase WP-23 · same enclosure as the Pi build</text>
+  <text x="212" y="546" font-size="12" fill="#3a7d52" text-anchor="middle">ESP32-S3 · ~10µA deep sleep → weeks per charge</text>
+
+  </g>
+</svg>

@@ -1,0 +1,138 @@
+<svg viewBox="0 0 960 770" width="960" height="770" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <title id="title">Shower Thoughts (ESP32-S3 build) — exploded assembly diagram</title>
+  <desc id="desc">Exploded view of the ESP32-S3 variant. From front to back: the WP-23 front face with drilled button, mic and LED holes; the PTFE membrane, 16mm button with an external 100k ohm pull-up resistor, RGB LED and micro-USB panel cable; the INMP441 I2S microphone; the ESP32-S3-DevKitC-1 dev board on M3 standoffs; the power cluster of LiPo battery, TP4056 charger and MT3608 boost converter; the gasketed base shell; and the exterior magnetic mount plate. A numbered legend maps each layer to its assembly step.</desc>
+
+  <rect x="0" y="0" width="960" height="770" fill="#ffffff"/>
+
+  <text x="40" y="44" font-size="18" font-weight="700" fill="#111827">Shower Thoughts (ESP32-S3) — Exploded Assembly</text>
+  <text x="40" y="64" font-size="11" fill="#6b7280">Same WP-23 enclosure · ESP32-S3-DevKitC-1 + INMP441 mic · numbers map to the assembly steps at right</text>
+
+  <!-- assembly axis -->
+  <line x1="250" y1="95" x2="250" y2="690" stroke="#c7ccd1" stroke-width="1.4" stroke-dasharray="5 5"/>
+
+  <!-- ===== LAYER 1: FRONT FACE ===== -->
+  <g>
+    <rect x="150" y="92" width="200" height="60" rx="9" fill="#bcc0c7" stroke="#878c93" stroke-width="1.5"/>
+    <rect x="158" y="100" width="184" height="44" rx="6" fill="none" stroke="#a7abb2" stroke-width="1"/>
+    <circle cx="210" cy="122" r="12" fill="#eef0f2" stroke="#7d8087" stroke-width="1.5"/>
+    <circle cx="262" cy="116" r="5" fill="#dfe2e6" stroke="#7d8087" stroke-width="1"/>
+    <circle cx="296" cy="116" r="5" fill="#dfe2e6" stroke="#7d8087" stroke-width="1"/>
+    <rect x="240" y="138" width="30" height="8" rx="4" fill="#9aa0a6"/>
+    <circle cx="172" cy="106" r="14" fill="#2f7d4f"/><text x="172" y="111" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">1</text>
+  </g>
+  <line x1="350" y1="122" x2="470" y2="122" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="476" y="118" font-size="13" fill="#1f2937">Front face — drill holes</text>
+  <text x="476" y="134" font-size="11" fill="#6b7280">16mm button · 3mm mic · LED · USB slot</text>
+
+  <!-- ===== LAYER 2: FRONT PARTS (+ pull-up) ===== -->
+  <g>
+    <circle cx="178" cy="198" r="13" fill="#f3f4f6" stroke="#9aa0a6" stroke-width="1"/>
+    <circle cx="178" cy="198" r="7" fill="#e2e5e9" stroke="#b6bac0" stroke-width="0.8"/>
+    <circle cx="222" cy="200" r="17" fill="#c7cace" stroke="#7d8087" stroke-width="1.5"/>
+    <circle cx="222" cy="200" r="11" fill="#e3e5e8" stroke="#a7abb2" stroke-width="1"/>
+    <circle cx="262" cy="200" r="9" fill="#38c172" stroke="#1f8f4d" stroke-width="1"/>
+    <rect x="286" y="190" width="34" height="20" rx="4" fill="#6b7280"/>
+    <rect x="290" y="195" width="22" height="10" rx="2" fill="#3f444b"/>
+    <!-- external pull-up resistor -->
+    <rect x="232" y="172" width="9" height="15" rx="2" fill="#ffffff" stroke="#b45309" stroke-width="1.2"/>
+    <circle cx="150" cy="200" r="14" fill="#2f7d4f"/><text x="150" y="205" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">2</text>
+  </g>
+  <line x1="330" y1="200" x2="470" y2="200" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="476" y="196" font-size="13" fill="#1f2937">PTFE vent · button · LED · USB cable</text>
+  <text x="476" y="212" font-size="11" fill="#b45309">+ external 100kΩ pull-up on the button (deep-sleep wake)</text>
+
+  <!-- ===== LAYER 3: INMP441 MIC ===== -->
+  <g>
+    <rect x="206" y="248" width="88" height="44" rx="4" fill="#3a3f4b" stroke="#23262e" stroke-width="1.5"/>
+    <circle cx="250" cy="270" r="7" fill="#e8eaed" stroke="#23262e" stroke-width="1"/>
+    <circle cx="250" cy="270" r="2.4" fill="#6b7280"/>
+    <text x="250" y="240" font-size="11" fill="#6b7280" text-anchor="middle">aligns under sound hole</text>
+    <circle cx="184" cy="270" r="14" fill="#2f7d4f"/><text x="184" y="275" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">3</text>
+  </g>
+  <line x1="294" y1="270" x2="470" y2="270" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="476" y="266" font-size="13" fill="#1f2937">INMP441 I2S microphone</text>
+  <text x="476" y="282" font-size="11" fill="#6b7280">SD→GPIO11 · SCK→GPIO12 · WS→GPIO13 · L/R→GND</text>
+
+  <!-- ===== LAYER 4: ESP32-S3-DevKitC-1 ===== -->
+  <g>
+    <rect x="170" y="312" width="160" height="92" rx="8" fill="#1f2433" stroke="#0e1118" stroke-width="1.5"/>
+    <!-- dual header rows -->
+    <rect x="180" y="318" width="140" height="9" rx="2" fill="#0e1118"/>
+    <rect x="180" y="389" width="140" height="9" rx="2" fill="#0e1118"/>
+    <g fill="#d9a441">
+      <circle cx="190" cy="322" r="1.4"/><circle cx="204" cy="322" r="1.4"/><circle cx="218" cy="322" r="1.4"/><circle cx="232" cy="322" r="1.4"/><circle cx="246" cy="322" r="1.4"/><circle cx="260" cy="322" r="1.4"/><circle cx="274" cy="322" r="1.4"/><circle cx="288" cy="322" r="1.4"/><circle cx="302" cy="322" r="1.4"/><circle cx="312" cy="322" r="1.4"/>
+      <circle cx="190" cy="393" r="1.4"/><circle cx="204" cy="393" r="1.4"/><circle cx="218" cy="393" r="1.4"/><circle cx="232" cy="393" r="1.4"/><circle cx="246" cy="393" r="1.4"/><circle cx="260" cy="393" r="1.4"/><circle cx="274" cy="393" r="1.4"/><circle cx="288" cy="393" r="1.4"/><circle cx="302" cy="393" r="1.4"/><circle cx="312" cy="393" r="1.4"/>
+    </g>
+    <!-- RF shield + antenna -->
+    <rect x="262" y="334" width="44" height="46" rx="3" fill="#aeb4bd" stroke="#7d8087" stroke-width="1"/>
+    <text x="284" y="361" font-size="7" fill="#3f444b" text-anchor="middle">S3</text>
+    <path d="M180,340 h10 v8 h10 v-8 h10 v8 h10" fill="none" stroke="#c07b3a" stroke-width="1.5"/>
+    <!-- USB-C ports at one end -->
+    <rect x="174" y="350" width="8" height="16" rx="2" fill="#cfd3d8"/>
+    <!-- standoffs -->
+    <g fill="#9aa0a6" stroke="#6b7280" stroke-width="0.8"><circle cx="180" cy="394" r="4"/><circle cx="320" cy="394" r="4"/><circle cx="180" cy="322" r="4"/><circle cx="320" cy="322" r="4"/></g>
+    <text x="250" y="378" fill="#cdd3de" font-size="9" text-anchor="middle">ESP32-S3-DevKitC-1</text>
+    <circle cx="150" cy="358" r="14" fill="#2f7d4f"/><text x="150" y="363" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">4</text>
+  </g>
+  <line x1="330" y1="358" x2="470" y2="358" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="476" y="354" font-size="13" fill="#1f2937">ESP32-S3-DevKitC-1 (N16R8)</text>
+  <text x="476" y="370" font-size="11" fill="#6b7280">on M3 standoffs · button on RTC GPIO14 for wake</text>
+
+  <!-- ===== LAYER 5: POWER CLUSTER ===== -->
+  <g>
+    <rect x="172" y="424" width="104" height="46" rx="6" fill="#c9ccd1" stroke="#9aa0a6" stroke-width="1.5"/>
+    <rect x="172" y="424" width="12" height="46" rx="6" fill="#b3b7bd"/>
+    <text x="226" y="451" font-size="11" fill="#6b7280" text-anchor="middle">1000 mAh LiPo</text>
+    <rect x="286" y="424" width="44" height="22" rx="3" fill="#c0392b" stroke="#922b21" stroke-width="1"/>
+    <text x="308" y="439" fill="#ffffff" font-size="8.5" text-anchor="middle">TP4056</text>
+    <rect x="286" y="450" width="44" height="20" rx="3" fill="#2b6cb0" stroke="#1f4e80" stroke-width="1"/>
+    <text x="308" y="464" fill="#ffffff" font-size="8.5" text-anchor="middle">MT3608</text>
+    <circle cx="150" cy="447" r="14" fill="#2f7d4f"/><text x="150" y="452" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">5</text>
+  </g>
+  <line x1="330" y1="447" x2="470" y2="447" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="476" y="443" font-size="13" fill="#1f2937">Power cluster — same path as the Pi build</text>
+  <text x="476" y="459" font-size="11" fill="#6b7280">USB→TP4056→LiPo→MT3608 (5.1V)→board 5V pin</text>
+
+  <!-- ===== LAYER 6: BASE SHELL ===== -->
+  <g>
+    <rect x="150" y="492" width="200" height="74" rx="10" fill="#cfd3d8" stroke="#878c93" stroke-width="2"/>
+    <rect x="160" y="500" width="180" height="58" rx="6" fill="#e3e5e8" stroke="#a7abb2" stroke-width="1" stroke-dasharray="4 3"/>
+    <g fill="#c2c6cc" stroke="#9aa0a6" stroke-width="1">
+      <circle cx="172" cy="512" r="5"/><circle cx="328" cy="512" r="5"/><circle cx="172" cy="546" r="5"/><circle cx="328" cy="546" r="5"/>
+    </g>
+    <text x="250" y="533" font-size="11" fill="#6b7280" text-anchor="middle">silicone gasket (dashed)</text>
+    <circle cx="368" cy="529" r="14" fill="#2f7d4f"/><text x="368" y="534" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">6</text>
+  </g>
+  <line x1="382" y1="529" x2="470" y2="529" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="476" y="525" font-size="13" fill="#1f2937">WP-23 base shell</text>
+  <text x="476" y="541" font-size="11" fill="#6b7280">4 mounting bosses · seal USB slot w/ RTV</text>
+
+  <!-- ===== LAYER 7: MAGNET MOUNT ===== -->
+  <g>
+    <rect x="170" y="600" width="160" height="40" rx="8" fill="#8d9299" stroke="#6b7280" stroke-width="1.5"/>
+    <circle cx="210" cy="620" r="8" fill="#a7abb2"/><circle cx="290" cy="620" r="8" fill="#a7abb2"/>
+    <text x="250" y="624" fill="#f3f4f6" font-size="11" text-anchor="middle">neodymium plate</text>
+    <circle cx="150" cy="620" r="14" fill="#2f7d4f"/><text x="150" y="625" text-anchor="middle" font-size="12" font-weight="700" fill="#ffffff">7</text>
+  </g>
+  <line x1="330" y1="620" x2="470" y2="620" stroke="#9aa0a6" stroke-width="1" fill="none"/>
+  <text x="476" y="616" font-size="13" fill="#1f2937">Magnetic wall mount</text>
+  <text x="476" y="632" font-size="11" fill="#6b7280">pops off to charge (or charges far less often!)</text>
+
+  <line x1="40" y1="668" x2="920" y2="668" stroke="#e5e7eb" stroke-width="1"/>
+
+  <!-- ===== STEP LEGEND ===== -->
+  <text x="40" y="694" font-size="13" font-weight="700" fill="#1f2937">Assembly order</text>
+  <g font-size="11" fill="#6b7280">
+    <text x="40" y="714"><tspan fill="#2f7d4f" font-weight="700">1</tspan>  Drill 16mm button + 3mm mic holes (step bit)</text>
+    <text x="40" y="732"><tspan fill="#2f7d4f" font-weight="700">2</tspan>  PTFE vent inside; fit button (+100kΩ pull-up), LED, USB</text>
+    <text x="40" y="750"><tspan fill="#2f7d4f" font-weight="700">3</tspan>  Mount INMP441 over the sound hole</text>
+
+    <text x="360" y="714"><tspan fill="#2f7d4f" font-weight="700">4</tspan>  ESP32-S3 on standoffs; button → RTC GPIO14</text>
+    <text x="360" y="732"><tspan fill="#2f7d4f" font-weight="700">5</tspan>  LiPo + TP4056 → MT3608 (5.1V) → board 5V</text>
+    <text x="360" y="750"><tspan fill="#2f7d4f" font-weight="700">6</tspan>  RTV-seal USB slot; close lid on the gasket</text>
+
+    <text x="680" y="714"><tspan fill="#2f7d4f" font-weight="700">7</tspan>  Stick magnet plates; hang on tile</text>
+    <text x="680" y="732" fill="#b45309">⚠ Button needs external 100kΩ pull-up to 3V3</text>
+    <text x="680" y="750" fill="#b45309">⚠ Set MT3608 to 5.1V · LiPo only, never mains</text>
+  </g>
+</svg>
