@@ -1,5 +1,11 @@
 # Hardware Guide
 
+## Figures
+
+- [Assembled prototype (exterior render)](exterior-render.svg) — what the finished device looks like mounted on the wall. See [Enclosure Assembly](#enclosure-assembly).
+- [Exploded assembly diagram](assembly-diagram.svg) — the seven layers front-to-back, numbered to the [assembly steps](#enclosure-assembly).
+- [Interior cutaway](interior-cutaway.svg) — top-down component layout with GPIO/pin wiring legend. Cross-check against the [Wiring](#wiring) tables.
+
 ## Bill of Materials
 
 | # | Part | Source | ~Cost |
