@@ -116,6 +116,10 @@ Connect the MT3608 input to the LiPo's positive terminal (via the TP4056 output)
 
 **Polycase WP-23** is a 4.5" × 3.5" × 2.1" gray polycarbonate box rated NEMA 4X / IP65 (dust-tight, water-jet resistant), with a silicone cover gasket. That's enough for a shower; you don't need IP67/68 unless you're mounting it inside the spray zone.
 
+![Assembled prototype mounted on shower tile: the sealed gray WP-23 enclosure with an RGB status LED, a 3mm mic sound hole with PTFE vent, a 16mm IP67 push button, and a silicone-sealed micro-USB charge port, held on by a magnetic plate.](exterior-render.svg)
+
+*What it looks like assembled and mounted — the sealed front face carries only the LED, mic hole, button, and (bottom edge) the charge port.*
+
 ![Exploded assembly diagram: WP-23 front face, button/LED/mic/USB parts, SPH0645 mic, Pi Zero 2W on standoffs, LiPo + TP4056 + MT3608 power cluster, gasketed base shell, and magnetic wall mount — numbered to the assembly steps below.](assembly-diagram.svg)
 
 *Exploded view, front face (top) to wall mount (bottom). The numbered layers map 1:1 to the assembly order below.*
@@ -132,6 +136,10 @@ Assembly order:
 8. Mount the Pi on M3 nylon standoffs to the enclosure floor (the WP-23 has 4 mounting bosses in the base)
 9. Tuck the LiPo alongside the Pi; secure with double-sided foam tape
 10. Close the lid — the WP-23's silicone gasket handles the waterproofing
+
+![Interior cutaway, top-down with the lid removed: the SPH0645 mic under the sound hole, the Raspberry Pi Zero 2W on standoffs in the center, the LiPo on the left and the TP4056 + MT3608 on the right, with indicative wiring to the GPIO header and a legend of exact GPIO / physical pins.](interior-cutaway.svg)
+
+*Interior layout (lid removed). Wires are indicative; the legend lists exact BCM GPIO and physical pin assignments — cross-check against the [Wiring](#wiring) tables above.*
 
 ### Mounting Options
 

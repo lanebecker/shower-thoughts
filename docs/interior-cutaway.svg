@@ -1,0 +1,117 @@
+<svg viewBox="0 0 820 650" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+  <title id="title">Shower Thoughts — interior cutaway (top-down, lid removed)</title>
+  <desc id="desc">Top-down view into the open WP-23 enclosure. Along the front face (top edge) are the ghosted button, RGB LED and microphone sound hole. Inside the base sit the SPH0645 I2S microphone under the sound hole, the Raspberry Pi Zero 2W on M3 standoffs in the center, the 1000 mAh LiPo battery on the left, and the TP4056 charger and MT3608 boost converter on the right. Indicative wires connect the mic, button and LED to the Pi GPIO header. A legend on the right lists the exact GPIO and physical pin assignments for the I2S microphone, button, RGB LED and power path.</desc>
+
+  <rect x="0" y="0" width="820" height="650" fill="#ffffff"/>
+
+  <text x="40" y="40" font-size="18" font-weight="700" fill="#111827">Shower Thoughts — Interior Layout</text>
+  <text x="40" y="60" font-size="11" fill="#6b7280">Top-down, lid removed · front face (with its holes) shown ghosted along the top edge</text>
+
+  <!-- ===================== ENCLOSURE FOOTPRINT ===================== -->
+  <rect x="50" y="86" width="560" height="430" rx="12" fill="#cfd3d8" stroke="#878c93" stroke-width="2"/>
+  <rect x="64" y="100" width="532" height="402" rx="8" fill="#eef0f2" stroke="#b6bac0" stroke-width="1"/>
+  <!-- mounting bosses -->
+  <g fill="#c2c6cc" stroke="#9aa0a6" stroke-width="1">
+    <circle cx="80" cy="116" r="6"/><circle cx="580" cy="116" r="6"/><circle cx="80" cy="486" r="6"/><circle cx="580" cy="486" r="6"/>
+  </g>
+
+  <!-- front face label + ghosted holes along top inner edge -->
+  <text x="330" y="96" font-size="10" fill="#9aa0a6" text-anchor="middle">front face (lid) — holes ghosted</text>
+  <!-- mic sound hole ghost -->
+  <circle cx="300" cy="118" r="9" fill="#ffffff" stroke="#9aa0a6" stroke-width="1.2" stroke-dasharray="3 2"/>
+  <circle cx="300" cy="118" r="3" fill="#cdd1d6"/>
+  <!-- button ghost -->
+  <circle cx="388" cy="120" r="17" fill="#ffffff" stroke="#9aa0a6" stroke-width="1.2" stroke-dasharray="3 2"/>
+  <text x="388" y="123" font-size="8" fill="#9aa0a6" text-anchor="middle">btn</text>
+  <!-- LED ghost -->
+  <circle cx="436" cy="120" r="8" fill="#eafaf0" stroke="#1f8f4d" stroke-width="1.2" stroke-dasharray="3 2"/>
+
+  <!-- ===================== SPH0645 MIC ===================== -->
+  <rect x="262" y="146" width="78" height="40" rx="4" fill="#2c6e49" stroke="#1d5233" stroke-width="1.5"/>
+  <circle cx="300" cy="166" r="6" fill="#e8eaed" stroke="#1d5233" stroke-width="1"/>
+  <circle cx="300" cy="166" r="2" fill="#6b7280"/>
+  <text x="301" y="205" font-size="10" fill="#374151" text-anchor="middle">SPH0645 mic</text>
+
+  <!-- ===================== LiPo ===================== -->
+  <rect x="92" y="300" width="116" height="150" rx="8" fill="#c9ccd1" stroke="#9aa0a6" stroke-width="1.5"/>
+  <rect x="92" y="300" width="116" height="16" rx="8" fill="#b3b7bd"/>
+  <text x="150" y="380" font-size="11" fill="#6b7280" text-anchor="middle">1000 mAh</text>
+  <text x="150" y="395" font-size="11" fill="#6b7280" text-anchor="middle">LiPo cell</text>
+
+  <!-- ===================== PI ZERO 2W ===================== -->
+  <rect x="244" y="300" width="240" height="112" rx="8" fill="#2c6e49" stroke="#1d5233" stroke-width="1.5"/>
+  <!-- GPIO header along top edge -->
+  <rect x="256" y="306" width="216" height="13" rx="2" fill="#26384a"/>
+  <g fill="#d9a441">
+    <circle cx="266" cy="312" r="1.6"/><circle cx="280" cy="312" r="1.6"/><circle cx="294" cy="312" r="1.6"/><circle cx="308" cy="312" r="1.6"/><circle cx="322" cy="312" r="1.6"/><circle cx="336" cy="312" r="1.6"/><circle cx="350" cy="312" r="1.6"/><circle cx="364" cy="312" r="1.6"/><circle cx="378" cy="312" r="1.6"/><circle cx="392" cy="312" r="1.6"/><circle cx="406" cy="312" r="1.6"/><circle cx="420" cy="312" r="1.6"/><circle cx="434" cy="312" r="1.6"/><circle cx="448" cy="312" r="1.6"/><circle cx="462" cy="312" r="1.6"/>
+  </g>
+  <text x="262" y="302" font-size="8" fill="#6b7280">pin 1</text>
+  <rect x="346" y="346" width="36" height="36" rx="3" fill="#1a2733"/>
+  <text x="364" y="400" font-size="11" fill="#cfe6d7" text-anchor="middle">Raspberry Pi Zero 2W</text>
+  <!-- standoff screws -->
+  <g fill="#9aa0a6" stroke="#6b7280" stroke-width="0.8"><circle cx="256" cy="402" r="4.5"/><circle cx="472" cy="402" r="4.5"/><circle cx="256" cy="324" r="4.5"/><circle cx="472" cy="324" r="4.5"/></g>
+
+  <!-- ===================== POWER MODULES ===================== -->
+  <rect x="506" y="150" width="78" height="36" rx="3" fill="#c0392b" stroke="#922b21" stroke-width="1"/>
+  <text x="545" y="172" fill="#ffffff" font-size="10" text-anchor="middle">TP4056</text>
+  <rect x="506" y="196" width="78" height="34" rx="3" fill="#2b6cb0" stroke="#1f4e80" stroke-width="1"/>
+  <text x="545" y="217" fill="#ffffff" font-size="10" text-anchor="middle">MT3608</text>
+  <text x="545" y="246" font-size="9" fill="#b45309" text-anchor="middle">set 5.1V</text>
+
+  <!-- ===================== WIRING (indicative) ===================== -->
+  <!-- I2S mic -> Pi header (orange) -->
+  <path d="M300,186 C300,250 300,270 300,306" fill="none" stroke="#d9822b" stroke-width="2"/>
+  <!-- button ghost -> Pi header (purple) -->
+  <path d="M388,137 C388,220 392,260 392,306" fill="none" stroke="#7c5cbf" stroke-width="2"/>
+  <!-- LED ghost -> Pi header (teal) with resistor tick -->
+  <path d="M436,128 C436,220 430,260 430,306" fill="none" stroke="#2f9e8f" stroke-width="2"/>
+  <rect x="425" y="210" width="10" height="16" rx="2" fill="#ffffff" stroke="#2f9e8f" stroke-width="1.2"/>
+  <text x="448" y="222" font-size="8" fill="#2f9e8f">330Ω×3</text>
+  <!-- power path (red, dashed): LiPo -> TP4056 -> MT3608 -> Pi 5V -->
+  <path d="M208,316 C420,250 470,200 506,168" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="5 3"/>
+  <path d="M545,230 C545,270 500,300 484,330" fill="none" stroke="#c0392b" stroke-width="1.8" stroke-dasharray="5 3"/>
+
+  <text x="330" y="540" font-size="10" fill="#6b7280" text-anchor="middle">Wires are indicative — exact GPIO / physical pins listed at right. Pi stays powered &amp; charging between showers.</text>
+
+  <!-- ===================== WIRING LEGEND ===================== -->
+  <text x="636" y="100" font-size="12" font-weight="700" fill="#111827">Wiring — BCM GPIO / phys pin</text>
+
+  <rect x="636" y="116" width="12" height="12" rx="2" fill="#d9822b"/>
+  <text x="654" y="126" font-size="11" font-weight="700" fill="#374151">I2S microphone</text>
+  <g font-size="10" fill="#4b5563">
+    <text x="636" y="142">3V → 3V3 (p1) · GND → (p6)</text>
+    <text x="636" y="156">BCLK → GPIO18 (p12)</text>
+    <text x="636" y="170">LRCLK → GPIO19 (p35)</text>
+    <text x="636" y="184">DATA → GPIO20 (p38)</text>
+    <text x="636" y="198">SEL → GND (p9) = left ch.</text>
+  </g>
+
+  <rect x="636" y="216" width="12" height="12" rx="2" fill="#7c5cbf"/>
+  <text x="654" y="226" font-size="11" font-weight="700" fill="#374151">Button</text>
+  <g font-size="10" fill="#4b5563">
+    <text x="636" y="242">GPIO17 (p11) ↔ GND (p9)</text>
+    <text x="636" y="256">software pull-up — no resistor</text>
+  </g>
+
+  <rect x="636" y="274" width="12" height="12" rx="2" fill="#2f9e8f"/>
+  <text x="654" y="284" font-size="11" font-weight="700" fill="#374151">RGB LED (common cathode)</text>
+  <g font-size="10" fill="#4b5563">
+    <text x="636" y="300">R → 330Ω → GPIO22 (p15)</text>
+    <text x="636" y="314">G → 330Ω → GPIO23 (p16)</text>
+    <text x="636" y="328">B → 330Ω → GPIO24 (p18)</text>
+    <text x="636" y="342">cathode → GND</text>
+  </g>
+
+  <rect x="636" y="360" width="12" height="12" rx="2" fill="#c0392b"/>
+  <text x="654" y="370" font-size="11" font-weight="700" fill="#374151">Power path</text>
+  <g font-size="10" fill="#4b5563">
+    <text x="636" y="386">USB → TP4056 → LiPo</text>
+    <text x="636" y="400">→ MT3608 (set 5.1V)</text>
+    <text x="636" y="414">→ Pi 5V pin (p4), not USB</text>
+  </g>
+
+  <rect x="636" y="432" width="172" height="56" rx="6" fill="#fff7ed" stroke="#f59e0b" stroke-width="1"/>
+  <text x="646" y="450" font-size="9.5" fill="#b45309">⚠ Dial MT3608 to 5.0–5.1V</text>
+  <text x="646" y="463" font-size="9.5" fill="#b45309">  before connecting the Pi.</text>
+  <text x="646" y="479" font-size="9.5" fill="#b45309">⚠ LiPo only — never mains.</text>
+</svg>
