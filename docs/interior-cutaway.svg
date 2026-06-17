@@ -1,4 +1,4 @@
-<svg viewBox="0 0 820 650" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<svg viewBox="0 0 820 650" width="820" height="650" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
   <title id="title">Shower Thoughts — interior cutaway (top-down, lid removed)</title>
   <desc id="desc">Top-down view into the open WP-23 enclosure. Along the front face (top edge) are the ghosted button, RGB LED and microphone sound hole. Inside the base sit the SPH0645 I2S microphone under the sound hole, the Raspberry Pi Zero 2W on M3 standoffs in the center, the 1000 mAh LiPo battery on the left, and the TP4056 charger and MT3608 boost converter on the right. Indicative wires connect the mic, button and LED to the Pi GPIO header. A legend on the right lists the exact GPIO and physical pin assignments for the I2S microphone, button, RGB LED and power path.</desc>
 

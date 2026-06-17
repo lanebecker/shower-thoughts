@@ -1,8 +1,9 @@
-<svg viewBox="-48 0 576 620" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
+<svg viewBox="0 0 576 620" width="576" height="620" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc" font-family="'Segoe UI', system-ui, -apple-system, sans-serif">
   <title id="title">Shower Thoughts — assembled prototype mounted on shower tile</title>
   <desc id="desc">The sealed gray Polycase WP-23 enclosure mounted on a tiled shower wall by a magnetic plate. Its front face carries an RGB status LED glowing green for ready, a 3mm microphone sound hole with a PTFE vent, a 16mm IP67 push button to start and stop recording, and a silicone-sealed micro-USB charging port on the bottom edge.</desc>
 
-  <rect x="-48" y="0" width="576" height="620" fill="#ffffff"/>
+  <rect x="0" y="0" width="576" height="620" fill="#ffffff"/>
+  <g transform="translate(48,0)">
   <text x="40" y="36" font-size="16" font-weight="700" fill="#111827">Assembled prototype — mounted on the wall</text>
 
   <!-- tile wall -->
@@ -70,4 +71,5 @@
 
   <text x="212" y="530" font-size="12" fill="#6b7280" text-anchor="middle">Polycase WP-23 · 4.5 × 3.5 × 2.1 in</text>
   <text x="212" y="548" font-size="12" fill="#6b7280" text-anchor="middle">gray polycarbonate · NEMA 4X / IP65</text>
+  </g>
 </svg>
