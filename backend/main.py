@@ -34,18 +34,24 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(me
 log = logging.getLogger(__name__)
 
 
-def _env_int(name: str, default: int) -> int:
+def _env_int(name: str, default: int, minimum: Optional[int] = None) -> int:
     """Parse an int env var, falling back (with a warning) on a missing/garbage
     value so a fat-fingered .env (e.g. MAX_UPLOAD_BYTES=25MB) can't crash the
-    server at import with a raw ValueError."""
+    server at import with a raw ValueError. A value below `minimum` (if given) is
+    clamped up -- so e.g. a negative/zero size cap can't silently reject every
+    upload."""
     raw = os.getenv(name)
     if raw is None or not raw.strip():
         return default
     try:
-        return int(raw)
+        value = int(raw)
     except ValueError:
         log.warning("Invalid %s=%r (not an integer); using default %d", name, raw, default)
         return default
+    if minimum is not None and value < minimum:
+        log.warning("%s=%d is below the minimum %d; clamping to %d", name, value, minimum, minimum)
+        return minimum
+    return value
 
 
 app = FastAPI(title="ShowerThoughts", version="0.2.1")
@@ -67,7 +73,7 @@ UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 # UPLOAD_DIR (defense in depth). NOTE: a client that omits Content-Length
 # (chunked transfer-encoding) can't be sized up front, so cap the body at a
 # reverse proxy (e.g. nginx `client_max_body_size`) for full coverage. Tunable.
-MAX_UPLOAD_BYTES = _env_int("MAX_UPLOAD_BYTES", 25 * 1024 * 1024)
+MAX_UPLOAD_BYTES = _env_int("MAX_UPLOAD_BYTES", 25 * 1024 * 1024, minimum=1)
 # Chunk size for copying the parsed upload to disk (1 MiB).
 _UPLOAD_CHUNK = 1024 * 1024
 
@@ -117,15 +123,20 @@ class MaxBodySizeMiddleware:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "http":
             for name, value in scope.get("headers", []):
-                if name == b"content-length":
-                    try:
-                        oversize = int(value) > self.max_bytes
-                    except ValueError:
-                        oversize = False
-                    if oversize:
-                        await self._too_large(send)
-                        return
-                    break
+                if name != b"content-length":
+                    continue
+                # Check every Content-Length header, not just the first. A
+                # conflicting duplicate pair is already rejected by the ASGI
+                # server (RFC 9112) before this runs, but if any declared length
+                # is oversize we 413 regardless. A non-numeric value is ignored
+                # here -- the handler's streaming byte cap is the backstop.
+                try:
+                    oversize = int(value) > self.max_bytes
+                except ValueError:
+                    oversize = False
+                if oversize:
+                    await self._too_large(send)
+                    return
         await self.app(scope, receive, send)
 
     @staticmethod

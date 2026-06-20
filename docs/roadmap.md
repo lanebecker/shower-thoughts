@@ -43,7 +43,7 @@ The core loop: press a button, talk, get a note.
 **Why:** A cold review of the v0.2.0 backend surfaced a cluster of input-handling, auth, and logging weaknesses worth closing before building further on top. No behaviour change for a well-behaved device — this is defense against malformed, oversized, hostile, or hung inputs.
 
 - ✅ **SEC-1** — Upload path traversal: the stored filename is generated server-side (`<job_id>.wav`), never the attacker-supplied multipart name
-- ✅ **SEC-2** — Upload DoS/OOM: body streamed to disk and capped at `MAX_UPLOAD_BYTES` (rejected with 413 above the cap) instead of buffered in RAM
+- ✅ **SEC-2** — Upload size cap (`MAX_UPLOAD_BYTES`): an ASGI middleware rejects an oversize declared `Content-Length` with a 413 before the body is buffered, and the handler caps the copy as a second layer (a reverse-proxy body cap is recommended to bound chunked clients)
 - ✅ **SEC-3** — Adapter timeouts: Notion / Obsidian-webhook / SMTP calls bounded with `timeout=15`
 - ✅ **SEC-4** — Constant-time device-token comparison (`hmac.compare_digest` over UTF-8 bytes)
 - ✅ **SEC-5** — SMTP STARTTLS validates the server certificate

@@ -403,6 +403,14 @@ def test_max_upload_bytes_bad_value_falls_back_to_default(monkeypatch):
     assert main_reloaded.MAX_UPLOAD_BYTES == 25 * 1024 * 1024
 
 
+def test_max_upload_bytes_negative_is_clamped_positive(monkeypatch):
+    """N2: a negative/zero MAX_UPLOAD_BYTES is clamped to a positive floor so it
+    can't silently reject every upload."""
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "-5")
+    main_reloaded, _ = fresh_client(monkeypatch, device_token="secret")
+    assert main_reloaded.MAX_UPLOAD_BYTES >= 1
+
+
 def test_upload_cleans_wav_when_store_create_fails(monkeypatch):
     """S3: if the job-row INSERT fails after the WAV is written (e.g. a job_id
     collision or a SQLite error), the WAV must not be left orphaned on disk."""

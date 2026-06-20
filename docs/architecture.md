@@ -149,7 +149,7 @@ Craft has no public REST API, so this adapter bridges to it via native mechanism
 | `DEVICE_TOKEN` | ❌ | — | Required by default; rejects uploads with 503 if unset (see `ALLOW_NO_DEVICE_TOKEN`) |
 | `ALLOW_NO_DEVICE_TOKEN` | ❌ | — | Set `1` to allow uploads with no token (local testing only) |
 | `UPLOAD_DIR` | ❌ | `/tmp/shower_uploads` | Directory for uploaded WAVs (and the default job DB) |
-| `MAX_UPLOAD_BYTES` | ❌ | `26214400` (25 MB) | Max upload size; larger bodies rejected with 413 (body is streamed, not buffered) |
+| `MAX_UPLOAD_BYTES` | ❌ | `26214400` (25 MB) | Max upload size; oversize declared `Content-Length` rejected with 413 before buffering (handler caps the copy too) |
 | `LOG_TRANSCRIPTS` | ❌ | — | Set `1` to log a short transcript preview; default logs only the transcript length |
 | `AI_PROVIDER` | ❌ | `anthropic` | `anthropic` or `openai` |
 | `ANTHROPIC_API_KEY` | ✅ if provider=anthropic | — | Anthropic API key |

@@ -75,7 +75,7 @@ All runtime config lives in `.env` files — never committed.
 |---------------------|---------------|---------------------------------------------------|
 | `DEVICE_TOKEN`      | —             | **Required by default** — uploads return 503 if unset (see `ALLOW_NO_DEVICE_TOKEN`) |
 | `ALLOW_NO_DEVICE_TOKEN` | —         | Set `1` to permit unauthenticated uploads (local testing only)     |
-| `MAX_UPLOAD_BYTES`  | `26214400` (25 MB) | Max upload size; larger bodies are rejected with 413 (the body is streamed to disk, never fully buffered) |
+| `MAX_UPLOAD_BYTES`  | `26214400` (25 MB) | Max upload size; an oversize *declared* `Content-Length` is rejected with 413 before the body is buffered (the handler caps the copy as a second layer) |
 | `LOG_TRANSCRIPTS`   | —             | Set `1` to log a short transcript preview; default logs only transcript length (privacy) |
 | `AI_PROVIDER`       | `anthropic`   | `anthropic` or `openai`                           |
 | `ANTHROPIC_API_KEY` | —             | Required if `AI_PROVIDER=anthropic`               |
