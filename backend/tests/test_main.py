@@ -299,3 +299,55 @@ def test_upload_within_limit_still_accepted(monkeypatch):
     assert saved.exists()
     # The full body (RIFF header + 2048 zero bytes) made it to disk intact.
     assert saved.stat().st_size == 4 + 2048
+
+
+def _stub_pipeline_with_transcript(monkeypatch, main_reloaded, transcript):
+    """Wire the pipeline so transcribe returns `transcript`; adapter is a no-op."""
+    monkeypatch.setattr(main_reloaded, "transcribe_audio", lambda p: transcript)
+
+    def fake_summarize(t):
+        note = make_note()
+        note.full_text = t
+        return note
+
+    monkeypatch.setattr(main_reloaded, "summarize_thought", fake_summarize)
+
+    class _Adapter:
+        def send(self, note):
+            pass
+
+    monkeypatch.setattr(main_reloaded, "get_adapter", lambda: _Adapter())
+
+
+def test_transcript_text_not_logged_by_default(monkeypatch, caplog):
+    """SEC-6: transcript content must not reach the logs at default config."""
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+    secret = "MY-SECRET-SHOWER-IDEA-42"
+    _stub_pipeline_with_transcript(monkeypatch, main_reloaded, secret)
+
+    with caplog.at_level("INFO"):
+        resp = client.post(
+            "/upload", files=WAV, headers={"X-Device-Token": "secret"}
+        )
+        assert resp.status_code == 202
+
+    # The transcript text itself never appears...
+    assert secret not in caplog.text
+    # ...but a length-only line confirms the stage still logs progress.
+    assert "Transcribed" in caplog.text
+
+
+def test_transcript_preview_logged_when_flag_enabled(monkeypatch, caplog):
+    """SEC-6: opting into LOG_TRANSCRIPTS=1 restores a short preview for debugging."""
+    monkeypatch.setenv("LOG_TRANSCRIPTS", "1")
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+    phrase = "PREVIEW-ME-PLEASE"
+    _stub_pipeline_with_transcript(monkeypatch, main_reloaded, phrase)
+
+    with caplog.at_level("INFO"):
+        resp = client.post(
+            "/upload", files=WAV, headers={"X-Device-Token": "secret"}
+        )
+        assert resp.status_code == 202
+
+    assert phrase in caplog.text

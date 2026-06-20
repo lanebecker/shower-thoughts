@@ -51,6 +51,11 @@ MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
 # Chunk size for streaming the body to disk (1 MiB).
 _UPLOAD_CHUNK = 1024 * 1024
 
+# Shower thoughts are personal by definition, so transcript *content* is never
+# logged by default -- only its length (SEC-6). Set LOG_TRANSCRIPTS=1 to opt into
+# logging a short preview when actively debugging.
+LOG_TRANSCRIPTS = os.getenv("LOG_TRANSCRIPTS", "").lower() in ("1", "true", "yes")
+
 # Persistent job store (SQLite). Defaults to a file alongside the uploads dir.
 # Job rows survive a backend restart -- the in-memory dict used through v0.1.x
 # did not. See jobs.py for the single-worker scope note.
@@ -169,7 +174,10 @@ async def _process_job(job_id: str, audio_path: Path):
         _store.update(job_id, status="transcribing")
         transcript = await asyncio.to_thread(transcribe_audio, audio_path)
         _store.update(job_id, transcript=transcript)
-        log.info(f"[{job_id}] Transcript: {transcript[:100]}...")
+        if LOG_TRANSCRIPTS:
+            log.info(f"[{job_id}] Transcript ({len(transcript)} chars): {transcript[:100]}...")
+        else:
+            log.info(f"[{job_id}] Transcribed {len(transcript)} chars")
 
         _store.update(job_id, status="summarizing")
         note = await asyncio.to_thread(summarize_thought, transcript)
