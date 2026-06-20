@@ -20,6 +20,11 @@ from summarizer import Note
 
 log = logging.getLogger(__name__)
 
+# Built once at import: create_default_context() loads the system CA bundle, so
+# there's no reason to rebuild it on every send (SEC-5). A default context is
+# stateless across uses, so sharing one instance is safe.
+_SSL_CONTEXT = ssl.create_default_context()
+
 
 class EmailAdapter:
     def send(self, note: Note) -> None:
@@ -51,7 +56,7 @@ class EmailAdapter:
             # Pass a default SSL context so the STARTTLS upgrade validates the
             # SMTP host's certificate against the system CA store (SEC-5).
             # Without it the "encrypted" channel can be silently MITM'd/stripped.
-            server.starttls(context=ssl.create_default_context())
+            server.starttls(context=_SSL_CONTEXT)
             server.login(user, password)
             server.sendmail(from_addr, [to_addr], msg.as_string())
         log.info(f"Thought emailed to {to_addr}: '{note.title}'")

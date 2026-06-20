@@ -44,6 +44,56 @@ def fresh_client(monkeypatch, *, device_token=None, allow_no_token=None):
 WAV = {"audio": ("thought.wav", b"RIFFfake", "audio/wav")}
 
 
+# --------------------------------------------------------------------------- #
+# Shared stubs. The pipeline does real network/disk I/O, so every test that
+# exercises /upload wires these in. Kept here once instead of re-inlined per test.
+# --------------------------------------------------------------------------- #
+
+
+def stub_pipeline(monkeypatch, main_reloaded, *, transcript="hello transcript", received=None):
+    """Wire transcribe/summarize/adapter to in-memory stubs (no real I/O).
+
+    full_text mirrors the real summarize_thought contract (== transcript). Pass a
+    list as `received` to capture the Note handed to the adapter.
+    """
+    monkeypatch.setattr(main_reloaded, "transcribe_audio", lambda p: transcript)
+
+    def fake_summarize(t):
+        note = make_note()
+        note.full_text = t
+        return note
+
+    monkeypatch.setattr(main_reloaded, "summarize_thought", fake_summarize)
+
+    class _Adapter:
+        def send(self, note):
+            if received is not None:
+                received.append(note)
+
+    monkeypatch.setattr(main_reloaded, "get_adapter", lambda: _Adapter())
+
+
+def stub_noop_process(monkeypatch, main_reloaded):
+    """Replace _process_job with a no-op so a saved WAV survives for inspection.
+
+    The real _process_job unlinks the WAV in a finally block, and TestClient runs
+    background tasks before returning the response.
+    """
+
+    async def _noop(job_id, audio_path):
+        pass
+
+    monkeypatch.setattr(main_reloaded, "_process_job", _noop)
+
+
+def run_happy_upload(monkeypatch, client, main_reloaded):
+    """Drive one successful upload through the stubbed pipeline; return job_id."""
+    stub_pipeline(monkeypatch, main_reloaded)
+    resp = client.post("/upload", files=WAV, headers={"X-Device-Token": "secret"})
+    assert resp.status_code == 202
+    return resp.json()["job_id"]
+
+
 def test_health_ok(monkeypatch):
     _, client = fresh_client(monkeypatch, device_token="secret")
     resp = client.get("/health")
@@ -62,14 +112,7 @@ def test_upload_no_token_with_allow_returns_202(monkeypatch):
         monkeypatch, device_token=None, allow_no_token="1"
     )
     # Stub the pipeline so the background task can't do real I/O.
-    monkeypatch.setattr(main_reloaded, "transcribe_audio", lambda p: "t")
-    monkeypatch.setattr(main_reloaded, "summarize_thought", lambda t: make_note())
-
-    class _Adapter:
-        def send(self, note):
-            pass
-
-    monkeypatch.setattr(main_reloaded, "get_adapter", lambda: _Adapter())
+    stub_pipeline(monkeypatch, main_reloaded)
     resp = client.post("/upload", files=WAV)
     assert resp.status_code == 202
 
@@ -100,21 +143,7 @@ def test_upload_happy_path_runs_pipeline(monkeypatch):
     main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
 
     received = []
-
-    class _Adapter:
-        def send(self, note):
-            received.append(note)
-
-    monkeypatch.setattr(main_reloaded, "transcribe_audio", lambda p: "hello transcript")
-
-    # Mirror the real summarize_thought contract: full_text is the transcript.
-    def fake_summarize(transcript):
-        note = make_note()
-        note.full_text = transcript
-        return note
-
-    monkeypatch.setattr(main_reloaded, "summarize_thought", fake_summarize)
-    monkeypatch.setattr(main_reloaded, "get_adapter", lambda: _Adapter())
+    stub_pipeline(monkeypatch, main_reloaded, received=received)
 
     resp = client.post("/upload", files=WAV, headers={"X-Device-Token": "secret"})
     assert resp.status_code == 202
@@ -140,27 +169,6 @@ def test_get_unknown_job_returns_404(monkeypatch):
     assert resp.status_code == 404
 
 
-def _run_happy_upload(monkeypatch, client, main_reloaded):
-    """Drive one successful upload through the (stubbed) pipeline; return job_id."""
-    monkeypatch.setattr(main_reloaded, "transcribe_audio", lambda p: "hello transcript")
-
-    def fake_summarize(transcript):
-        note = make_note()
-        note.full_text = transcript
-        return note
-
-    monkeypatch.setattr(main_reloaded, "summarize_thought", fake_summarize)
-
-    class _Adapter:
-        def send(self, note):
-            pass
-
-    monkeypatch.setattr(main_reloaded, "get_adapter", lambda: _Adapter())
-    resp = client.post("/upload", files=WAV, headers={"X-Device-Token": "secret"})
-    assert resp.status_code == 202
-    return resp.json()["job_id"]
-
-
 def test_jobs_list_empty(monkeypatch):
     _, client = fresh_client(monkeypatch, device_token="secret")
     resp = client.get("/jobs", headers={"X-Device-Token": "secret"})
@@ -175,7 +183,7 @@ def test_jobs_list_requires_auth(monkeypatch):
 
 def test_jobs_list_returns_completed_note(monkeypatch):
     main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
-    job_id = _run_happy_upload(monkeypatch, client, main_reloaded)
+    job_id = run_happy_upload(monkeypatch, client, main_reloaded)
 
     resp = client.get("/jobs", headers={"X-Device-Token": "secret"})
     assert resp.status_code == 200
@@ -200,7 +208,7 @@ def test_job_persists_across_restart(monkeypatch, tmp_path):
     db = str(tmp_path / "persist.db")
     monkeypatch.setenv("JOBS_DB", db)
     main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
-    job_id = _run_happy_upload(monkeypatch, client, main_reloaded)
+    job_id = run_happy_upload(monkeypatch, client, main_reloaded)
 
     # Simulate a backend restart: reload main against the same DB file.
     monkeypatch.setenv("JOBS_DB", db)
@@ -233,13 +241,8 @@ def test_upload_path_traversal_filename_stays_in_upload_dir(monkeypatch):
     and (c) nothing landed at the traversal target outside the dir.
     """
     main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
-    # Stub the background pipeline to a no-op. The real _process_job unlinks the
-    # WAV in its finally block, and TestClient runs background tasks before
-    # returning -- so without this the file would be gone before we inspect it.
-    async def _noop(job_id, audio_path):
-        pass
-
-    monkeypatch.setattr(main_reloaded, "_process_job", _noop)
+    # No-op the background pipeline so the saved WAV survives for inspection.
+    stub_noop_process(monkeypatch, main_reloaded)
 
     upload_dir = main_reloaded.UPLOAD_DIR.resolve()
     evil_name = "_../../../../../../tmp/st_pwned.wav"
@@ -282,11 +285,7 @@ def test_upload_within_limit_still_accepted(monkeypatch):
     """SEC-2 sanity: a body under the cap streams to disk and is accepted."""
     monkeypatch.setenv("MAX_UPLOAD_BYTES", str(1024 * 1024))
     main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
-
-    async def _noop(job_id, audio_path):
-        pass
-
-    monkeypatch.setattr(main_reloaded, "_process_job", _noop)
+    stub_noop_process(monkeypatch, main_reloaded)
 
     resp = client.post(
         "/upload",
@@ -301,29 +300,11 @@ def test_upload_within_limit_still_accepted(monkeypatch):
     assert saved.stat().st_size == 4 + 2048
 
 
-def _stub_pipeline_with_transcript(monkeypatch, main_reloaded, transcript):
-    """Wire the pipeline so transcribe returns `transcript`; adapter is a no-op."""
-    monkeypatch.setattr(main_reloaded, "transcribe_audio", lambda p: transcript)
-
-    def fake_summarize(t):
-        note = make_note()
-        note.full_text = t
-        return note
-
-    monkeypatch.setattr(main_reloaded, "summarize_thought", fake_summarize)
-
-    class _Adapter:
-        def send(self, note):
-            pass
-
-    monkeypatch.setattr(main_reloaded, "get_adapter", lambda: _Adapter())
-
-
 def test_transcript_text_not_logged_by_default(monkeypatch, caplog):
     """SEC-6: transcript content must not reach the logs at default config."""
     main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
     secret = "MY-SECRET-SHOWER-IDEA-42"
-    _stub_pipeline_with_transcript(monkeypatch, main_reloaded, secret)
+    stub_pipeline(monkeypatch, main_reloaded, transcript=secret)
 
     with caplog.at_level("INFO"):
         resp = client.post(
@@ -342,7 +323,7 @@ def test_transcript_preview_logged_when_flag_enabled(monkeypatch, caplog):
     monkeypatch.setenv("LOG_TRANSCRIPTS", "1")
     main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
     phrase = "PREVIEW-ME-PLEASE"
-    _stub_pipeline_with_transcript(monkeypatch, main_reloaded, phrase)
+    stub_pipeline(monkeypatch, main_reloaded, transcript=phrase)
 
     with caplog.at_level("INFO"):
         resp = client.post(
@@ -351,3 +332,51 @@ def test_transcript_preview_logged_when_flag_enabled(monkeypatch, caplog):
         assert resp.status_code == 202
 
     assert phrase in caplog.text
+
+
+def test_non_ascii_device_token_is_401_not_typeerror(monkeypatch):
+    """Review follow-up: a non-ASCII token must yield a clean 401, never a 500.
+
+    Starlette latin-1 decodes inbound header values, so a raw high byte (0xF6)
+    reaches the handler as the str "ö". hmac.compare_digest raises TypeError on a
+    non-ASCII str, so the buggy version turned that into an unhandled 500. We
+    drive _check_auth directly because httpx refuses to transmit a non-ASCII
+    header at all -- the bug lives below the transport, at this function.
+    """
+    from fastapi import HTTPException
+
+    main_reloaded, _ = fresh_client(monkeypatch, device_token="secret")
+    wire_value = bytes([0xF6]).decode("latin-1")  # what the wire byte decodes to
+    with pytest.raises(HTTPException) as exc:
+        main_reloaded._check_auth(wire_value)
+    assert exc.value.status_code == 401  # not a TypeError bubbling up to 500
+
+
+def test_upload_partial_file_cleaned_on_write_error(monkeypatch):
+    """Review follow-up (SEC-2): a non-413 failure mid-stream must not orphan a WAV.
+
+    We make the second chunk read raise a non-HTTPException; the handler should
+    unlink the partial file (its except now catches any Exception, not just the
+    413 path) and the uploads dir should be left clean.
+    """
+    import starlette.datastructures as ds
+
+    main_reloaded, _ = fresh_client(monkeypatch, device_token="secret")
+    client = TestClient(main_reloaded.app, raise_server_exceptions=False)
+
+    state = {"n": 0}
+
+    async def flaky_read(self, size=-1):
+        state["n"] += 1
+        if state["n"] == 1:
+            return b"PARTIAL-BYTES"  # written to disk
+        raise RuntimeError("simulated disk/stream failure")
+
+    monkeypatch.setattr(ds.UploadFile, "read", flaky_read)
+
+    resp = client.post(
+        "/upload", files=WAV, headers={"X-Device-Token": "secret"}
+    )
+    assert resp.status_code >= 500  # the RuntimeError surfaces as a server error
+    # ...but no partial WAV is left behind.
+    assert not any(main_reloaded.UPLOAD_DIR.glob("*.wav"))

@@ -86,9 +86,11 @@ def _check_auth(x_device_token: Optional[str]):
                    "(or ALLOW_NO_DEVICE_TOKEN=1 for local testing).",
         )
     # Constant-time comparison so the check can't be timing-probed byte by byte
-    # (SEC-4). x_device_token may be None; coerce to "" so compare_digest gets a
-    # str. Both operands are ASCII tokens, so compare_digest is safe here.
-    if not hmac.compare_digest(x_device_token or "", DEVICE_TOKEN):
+    # (SEC-4). Compare the UTF-8 *bytes*: hmac.compare_digest raises TypeError on
+    # a str containing non-ASCII chars, and inbound header values are latin-1
+    # decoded, so a raw high byte in X-Device-Token would otherwise turn a clean
+    # 401 into an unhandled 500. Encoding both sides sidesteps that entirely.
+    if not hmac.compare_digest((x_device_token or "").encode("utf-8"), DEVICE_TOKEN.encode("utf-8")):
         raise HTTPException(status_code=401, detail="Invalid device token")
 
 
@@ -115,7 +117,10 @@ async def upload_audio(
     # coerce so a malformed upload returns a clean 400 rather than a 500.
     if not (audio.filename or "").endswith(".wav"):
         raise HTTPException(status_code=400, detail="Only WAV files accepted")
-    job_id    = str(uuid.uuid4())[:8]
+    # 48 bits of randomness (12 hex). job_id is both the DB primary key and the
+    # entire on-disk filename (SEC-1), so a birthday collision would 500 on the
+    # INSERT and overwrite a WAV; 12 hex keeps that probability negligible.
+    job_id    = uuid.uuid4().hex[:12]
     timestamp = datetime.now().isoformat()
     # Storage name is generated entirely server-side. audio.filename is
     # attacker-controlled and must never participate in the path -- a crafted
@@ -142,7 +147,11 @@ async def upload_audio(
                 if written > MAX_UPLOAD_BYTES:
                     raise HTTPException(status_code=413, detail="Upload too large")
                 dst.write(chunk)
-    except HTTPException:
+    except Exception:
+        # Any failure before the job is enqueued -- the 413 guard, a disk error,
+        # or a mid-stream client disconnect -- must not leave a partial WAV
+        # behind. _process_job's finally-unlink never runs (we haven't scheduled
+        # it yet), so we clean up here and re-raise.
         save_path.unlink(missing_ok=True)
         raise
     log.info(f"[{job_id}] Received {written/1024:.1f}KB audio")
