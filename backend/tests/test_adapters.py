@@ -47,6 +47,8 @@ def test_apple_notes_send_success(monkeypatch):
     args, kwargs = calls[0]
     assert args == ["osascript", "-"]
     assert "input" in kwargs
+    # SEC-3: the osascript subprocess must carry a timeout (default adapter).
+    assert kwargs.get("timeout") == 15
     script = kwargs["input"]
     assert "Idea" in script  # title
     assert "Shower Thoughts" in script  # folder
@@ -58,6 +60,19 @@ def test_apple_notes_send_failure_raises(monkeypatch):
         "run",
         lambda args, **kwargs: _FakeProc(returncode=1, stderr="boom"),
     )
+    with pytest.raises(RuntimeError):
+        apple_notes.AppleNotesAdapter().send(make_note())
+
+
+def test_apple_notes_timeout_raises_runtimeerror(monkeypatch):
+    """SEC-3: a wedged osascript (TimeoutExpired) becomes a clean RuntimeError so
+    the job goes to error instead of pinning the worker thread forever."""
+    import subprocess as _sp
+
+    def fake_run(args, **kwargs):
+        raise _sp.TimeoutExpired(cmd=args, timeout=kwargs.get("timeout"))
+
+    monkeypatch.setattr(apple_notes.subprocess, "run", fake_run)
     with pytest.raises(RuntimeError):
         apple_notes.AppleNotesAdapter().send(make_note())
 
@@ -236,7 +251,9 @@ def test_craft_url_scheme_invokes_osascript(monkeypatch):
     craft._send_url_scheme(make_note())
 
     assert len(calls) == 1
-    args, _ = calls[0]
+    args, kwargs = calls[0]
+    # SEC-3: the osascript subprocess must carry a timeout.
+    assert kwargs.get("timeout") == 15
     joined = " ".join(args)
     assert "open location" in joined
     assert "craftdocs://" in joined

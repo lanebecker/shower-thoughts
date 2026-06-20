@@ -30,12 +30,20 @@ class AppleNotesAdapter:
 
     def send(self, note: Note) -> None:
         script = _build_script(note.title, _build_html(note), NOTES_FOLDER)
-        result = subprocess.run(
-            ["osascript", "-"],
-            input=script,
-            capture_output=True,
-            text=True,
-        )
+        # timeout bounds a wedged osascript (a hung Notes.app, mid-iCloud sync,
+        # or a blocking Automation-permission prompt) so it can't pin a worker
+        # thread forever (SEC-3 applies to subprocess delivery too, not just the
+        # HTTP/SMTP adapters). This is the *default* adapter, so it matters most.
+        try:
+            result = subprocess.run(
+                ["osascript", "-"],
+                input=script,
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+        except subprocess.TimeoutExpired:
+            raise RuntimeError("AppleScript timed out (Notes.app unresponsive?)")
         if result.returncode != 0:
             raise RuntimeError(f"AppleScript failed: {result.stderr.strip()}")
         log.info("Note created in Apple Notes (folder %r): %r", NOTES_FOLDER, note.title)

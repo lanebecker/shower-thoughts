@@ -33,6 +33,21 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
+
+def _env_int(name: str, default: int) -> int:
+    """Parse an int env var, falling back (with a warning) on a missing/garbage
+    value so a fat-fingered .env (e.g. MAX_UPLOAD_BYTES=25MB) can't crash the
+    server at import with a raw ValueError."""
+    raw = os.getenv(name)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        log.warning("Invalid %s=%r (not an integer); using default %d", name, raw, default)
+        return default
+
+
 app = FastAPI(title="ShowerThoughts", version="0.2.1")
 
 UPLOAD_DIR   = Path(os.getenv("UPLOAD_DIR", "/tmp/shower_uploads"))
@@ -45,10 +60,15 @@ ALLOW_NO_DEVICE_TOKEN = os.getenv("ALLOW_NO_DEVICE_TOKEN", "").lower() in ("1", 
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 # Max accepted upload size. The device caps clips at MAX_DURATION_S (~9.6 MB),
-# so 25 MB is comfortable headroom while still bounding a hostile/buggy client
-# that POSTs a multi-GB body to OOM the single worker (SEC-2). Tunable via env.
-MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
-# Chunk size for streaming the body to disk (1 MiB).
+# so 25 MB is comfortable headroom. Enforced two ways (SEC-2): the ASGI
+# MaxBodySizeMiddleware (below) rejects an oversize *declared* Content-Length
+# with a 413 before Starlette receives and spools the body to a temp file, and
+# the upload handler also counts bytes while copying the parsed file to
+# UPLOAD_DIR (defense in depth). NOTE: a client that omits Content-Length
+# (chunked transfer-encoding) can't be sized up front, so cap the body at a
+# reverse proxy (e.g. nginx `client_max_body_size`) for full coverage. Tunable.
+MAX_UPLOAD_BYTES = _env_int("MAX_UPLOAD_BYTES", 25 * 1024 * 1024)
+# Chunk size for copying the parsed upload to disk (1 MiB).
 _UPLOAD_CHUNK = 1024 * 1024
 
 # Shower thoughts are personal by definition, so transcript *content* is never
@@ -74,6 +94,55 @@ if not DEVICE_TOKEN:
 # SINGLE uvicorn worker. Job *state* now lives in SQLite (see jobs.py) and so
 # survives a restart, but the background worker pool does not coordinate across
 # processes. Multi-worker is a deliberate non-goal -- see CLAUDE.md invariants.
+
+
+class MaxBodySizeMiddleware:
+    """Reject oversize uploads at the ASGI layer, before the body is buffered.
+
+    A multipart *file* part has no per-part size limit in Starlette, and FastAPI
+    parses the whole multipart body (spooling it to a temp file) *before* the
+    route handler runs -- so an in-handler size check fires only after the bytes
+    have already landed on disk. This middleware keys off the Content-Length
+    header (which the device, `curl -F`, and `requests` all send for a file
+    upload) and 413s before the body is read at all (SEC-2). Clients that omit
+    Content-Length (chunked) can't be sized up front -- bound those with a
+    reverse-proxy body cap; the handler keeps a streaming byte cap as a second
+    layer.
+    """
+
+    def __init__(self, app, max_bytes: int):
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            for name, value in scope.get("headers", []):
+                if name == b"content-length":
+                    try:
+                        oversize = int(value) > self.max_bytes
+                    except ValueError:
+                        oversize = False
+                    if oversize:
+                        await self._too_large(send)
+                        return
+                    break
+        await self.app(scope, receive, send)
+
+    @staticmethod
+    async def _too_large(send):
+        body = b'{"detail":"Upload too large"}'
+        await send({
+            "type": "http.response.start",
+            "status": 413,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(body)).encode()),
+            ],
+        })
+        await send({"type": "http.response.body", "body": body})
+
+
+app.add_middleware(MaxBodySizeMiddleware, max_bytes=MAX_UPLOAD_BYTES)
 
 
 def _check_auth(x_device_token: Optional[str]):
@@ -104,15 +173,11 @@ async def upload_audio(
     background_tasks: BackgroundTasks,
     audio: UploadFile = File(...),
     x_device_token: Optional[str] = Header(None),
-    content_length: Optional[int] = Header(None),
 ):
     _check_auth(x_device_token)
-    # Cheap early reject: if the client declares an oversize body, 413 before we
-    # read a single byte. Content-Length is client-supplied (may be absent or
-    # lie), so this is only an optimization -- the streaming guard below is the
-    # real enforcement.
-    if content_length is not None and content_length > MAX_UPLOAD_BYTES:
-        raise HTTPException(status_code=413, detail="Upload too large")
+    # (Oversize bodies with a declared Content-Length are already 413'd by
+    # MaxBodySizeMiddleware before we get here; the byte-count guard below is the
+    # second layer that also covers a chunked/lying client.)
     # audio.filename can be None for a multipart part without a filename;
     # coerce so a malformed upload returns a clean 400 rather than a 500.
     if not (audio.filename or "").endswith(".wav"):
@@ -132,10 +197,12 @@ async def upload_audio(
     # writing, so any future change to the naming scheme can't silently regress.
     if not save_path.resolve().is_relative_to(UPLOAD_DIR.resolve()):
         raise HTTPException(status_code=400, detail="Invalid upload path")
-    # Stream the body to disk in bounded chunks rather than buffering the whole
-    # upload in RAM (SEC-2). We count bytes as we go and abort with 413 the
-    # instant the cap is exceeded, deleting the partial file so a rejected
-    # upload leaves nothing behind.
+    # Copy the parsed upload to disk in bounded chunks, counting bytes so a
+    # chunked/lying client that slipped past the Content-Length middleware is
+    # still capped at MAX_UPLOAD_BYTES (SEC-2, second layer). NOTE: Starlette has
+    # already received and spooled the full body to a temp file by this point, so
+    # this bounds what *we* persist, not what was received -- pre-receipt
+    # enforcement is the middleware's (and a reverse proxy's) job.
     written = 0
     try:
         with save_path.open("wb") as dst:
@@ -155,7 +222,15 @@ async def upload_audio(
         save_path.unlink(missing_ok=True)
         raise
     log.info(f"[{job_id}] Received {written/1024:.1f}KB audio")
-    _store.create(job_id, timestamp)
+    # Record the job row *before* scheduling work. If create() fails -- a job_id
+    # collision (plain INSERT on a PRIMARY KEY) or a SQLite error -- the WAV is
+    # already on disk and would otherwise be orphaned (the background task that
+    # unlinks it is never scheduled), so clean up here too.
+    try:
+        _store.create(job_id, timestamp)
+    except Exception:
+        save_path.unlink(missing_ok=True)
+        raise
     background_tasks.add_task(_process_job, job_id, save_path)
     return JSONResponse({"job_id": job_id, "status": "queued"}, status_code=202)
 
@@ -206,7 +281,13 @@ async def _process_job(job_id: str, audio_path: Path):
         log.info(f"[{job_id}] ✅ Done")
     except Exception as e:
         log.exception(f"[{job_id}] Processing failed: {e}")
-        _store.update(job_id, status="error", error=str(e))
+        # Recording the error must not itself throw -- if the SQLite write fails
+        # (locked DB, disk full) the job would otherwise be stuck in a
+        # non-terminal state with the original failure lost. Swallow + log.
+        try:
+            _store.update(job_id, status="error", error=str(e))
+        except Exception:
+            log.exception(f"[{job_id}] Could not record error state")
     finally:
         try:
             audio_path.unlink()

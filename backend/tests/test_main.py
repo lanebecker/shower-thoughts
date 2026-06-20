@@ -380,3 +380,39 @@ def test_upload_partial_file_cleaned_on_write_error(monkeypatch):
     assert resp.status_code >= 500  # the RuntimeError surfaces as a server error
     # ...but no partial WAV is left behind.
     assert not any(main_reloaded.UPLOAD_DIR.glob("*.wav"))
+
+
+def test_oversize_body_rejected_by_middleware_before_auth(monkeypatch):
+    """SEC-2 (C1): MaxBodySizeMiddleware 413s an oversize *declared* body before
+    the handler runs at all -- so the body is never parsed/spooled. The guard
+    sits ahead of auth on purpose (DoS protection shouldn't require a token), so
+    we send no device token and still expect 413, not 401."""
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "1024")
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+
+    big = b"RIFF" + b"\x00" * 5000  # well over the 1 KiB cap
+    resp = client.post("/upload", files={"audio": ("t.wav", big, "audio/wav")})
+    assert resp.status_code == 413
+    assert not any(main_reloaded.UPLOAD_DIR.glob("*.wav"))
+
+
+def test_max_upload_bytes_bad_value_falls_back_to_default(monkeypatch):
+    """S1: a non-integer MAX_UPLOAD_BYTES must not crash the app at import."""
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "25MB")  # not an int
+    main_reloaded, _ = fresh_client(monkeypatch, device_token="secret")
+    assert main_reloaded.MAX_UPLOAD_BYTES == 25 * 1024 * 1024
+
+
+def test_upload_cleans_wav_when_store_create_fails(monkeypatch):
+    """S3: if the job-row INSERT fails after the WAV is written (e.g. a job_id
+    collision or a SQLite error), the WAV must not be left orphaned on disk."""
+    main_reloaded, _ = fresh_client(monkeypatch, device_token="secret")
+    client = TestClient(main_reloaded.app, raise_server_exceptions=False)
+
+    def boom(*a, **k):
+        raise RuntimeError("simulated job-store INSERT failure")
+
+    monkeypatch.setattr(main_reloaded._store, "create", boom)
+    resp = client.post("/upload", files=WAV, headers={"X-Device-Token": "secret"})
+    assert resp.status_code >= 500
+    assert not any(main_reloaded.UPLOAD_DIR.glob("*.wav"))

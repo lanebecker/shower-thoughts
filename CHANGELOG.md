@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed / Fixed — post-v0.2.1 cold-review hardening
+
+- **SEC-2 enforcement moved ahead of body buffering.** A `MaxBodySizeMiddleware` now rejects an oversize *declared* `Content-Length` with a **413** at the ASGI layer — before FastAPI parses (and spools to a temp file) the multipart body. The in-handler check it replaces ran only *after* the body was already on disk, so it never actually prevented the disk-spill it claimed to. The handler keeps a streaming byte cap as a second layer. Clients that omit `Content-Length` (chunked transfer-encoding) still need a reverse-proxy body cap (e.g. nginx `client_max_body_size`); now documented in `.env.example` and `docs/architecture.md`.
+- **SEC-3 extended to the subprocess adapters.** The `apple_notes` (the default adapter) and `craft` `osascript` `subprocess.run` calls now pass `timeout=15` and surface a timeout as a clean `RuntimeError`, so a wedged Notes.app/Craft or a blocking Automation-permission prompt can't pin a worker thread forever — the same starvation SEC-3 closed for the HTTP/SMTP adapters.
+- **Robustness:** `MAX_UPLOAD_BYTES` now parses defensively (a non-integer value logs a warning and falls back instead of crashing the server at import); a failed job-row `create()` unlinks the just-written WAV instead of orphaning it; and `_process_job`'s error-state write is guarded so a failing DB write can't leave a job stuck in a non-terminal state.
+
 ## [0.2.1] - 2026-06-20
 
 The **security & input hardening** milestone: a cold-review pass over the v0.2.0
@@ -18,7 +24,7 @@ this is defense against malformed, oversized, hostile, or hung inputs.
 ### Security
 
 - **SEC-1 — Path traversal on upload (high).** The upload's on-disk name is now generated entirely server-side (`<job_id>.wav`); the attacker-controlled multipart `filename` never participates in the path. A `resolve()`/`is_relative_to()` guard rejects anything that would escape `UPLOAD_DIR`. Previously a crafted `filename` could write arbitrary bytes anywhere the backend process could.
-- **SEC-2 — Unbounded upload read / OOM (medium).** The request body is now streamed to disk in 1 MiB chunks and capped at `MAX_UPLOAD_BYTES` (default 25 MB), rejecting oversize uploads with **413** instead of buffering the whole body in RAM and risking an OOM of the single worker.
+- **SEC-2 — Unbounded upload read (medium).** Uploads are capped at `MAX_UPLOAD_BYTES` (default 25 MB) and rejected with **413**; the parsed file is copied to disk in bounded 1 MiB chunks instead of one large in-memory read. (See *Unreleased* — a cold-review follow-up moved the size check ahead of body buffering, since the original in-handler check ran only after Starlette had already spooled the body.)
 - **SEC-3 — Missing adapter timeouts (medium).** The Notion, Obsidian-webhook, and SMTP outbound calls now set `timeout=15`, so a hung endpoint flips the job to `error` instead of starving the worker-thread pool. (A *total* per-job delivery deadline is tracked separately as SEC-7 / #28 for v0.2.4.)
 - **SEC-4 — Non-constant-time token check (low).** The device-token comparison uses `hmac.compare_digest` on the UTF-8 bytes, removing the timing side-channel.
 - **SEC-5 — Unverified SMTP STARTTLS (low).** The email adapter passes a default `ssl.create_default_context()` to `starttls()`, so the upgraded connection validates the SMTP host's certificate and hostname.

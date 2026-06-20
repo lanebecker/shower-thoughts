@@ -53,7 +53,16 @@ def _send_url_scheme(note: Note):
         f"&title={quote(title, safe='')}"
         f"&content={quote(content, safe='')}"
     )
-    result = subprocess.run(["osascript", "-e", f'open location "{url}"'], capture_output=True, text=True)
+    # timeout so a wedged osascript can't pin a worker thread forever (SEC-3).
+    try:
+        result = subprocess.run(
+            ["osascript", "-e", f'open location "{url}"'],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("AppleScript timed out (Craft unresponsive?)")
     if result.returncode != 0:
         raise RuntimeError(f"AppleScript failed: {result.stderr.strip()}")
     log.info(f"Craft document created: '{note.title}'")
