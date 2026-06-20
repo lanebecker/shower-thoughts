@@ -1,5 +1,7 @@
 """Tests for the individual notes adapters. All external I/O is mocked."""
 
+import ssl
+
 import pytest
 
 import summarizer
@@ -174,8 +176,8 @@ class _FakeSMTP:
     def __exit__(self, *exc):
         return False
 
-    def starttls(self):
-        pass
+    def starttls(self, context=None):
+        self.starttls_context = context
 
     def login(self, user, password):
         self.user = user
@@ -199,6 +201,8 @@ def test_email_send_calls_sendmail(monkeypatch):
     smtp = _FakeSMTP.instances[0]
     # SEC-3: the SMTP connection must be opened with an explicit timeout.
     assert smtp.timeout == 15
+    # SEC-5: STARTTLS must be upgraded with a real SSL context (cert validation).
+    assert isinstance(smtp.starttls_context, ssl.SSLContext)
     assert len(smtp.sent) == 1
     from_addr, to_addrs, msg = smtp.sent[0]
     assert to_addrs == ["dest@example.com"]

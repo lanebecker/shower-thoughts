@@ -10,6 +10,7 @@ Optional env vars: SMTP_PORT (default 587), EMAIL_FROM (default SMTP_USER)
 """
 
 import os
+import ssl
 import logging
 import smtplib
 from email.mime.text import MIMEText
@@ -47,7 +48,10 @@ class EmailAdapter:
         # timeout guards the worker thread against a hung/half-open SMTP socket
         # (SEC-3) -- without it a stuck connection blocks the job forever.
         with smtplib.SMTP(host, port, timeout=15) as server:
-            server.starttls()
+            # Pass a default SSL context so the STARTTLS upgrade validates the
+            # SMTP host's certificate against the system CA store (SEC-5).
+            # Without it the "encrypted" channel can be silently MITM'd/stripped.
+            server.starttls(context=ssl.create_default_context())
             server.login(user, password)
             server.sendmail(from_addr, [to_addr], msg.as_string())
         log.info(f"Thought emailed to {to_addr}: '{note.title}'")
