@@ -43,6 +43,13 @@ DEVICE_TOKEN = os.getenv("DEVICE_TOKEN", "")
 ALLOW_NO_DEVICE_TOKEN = os.getenv("ALLOW_NO_DEVICE_TOKEN", "").lower() in ("1", "true", "yes")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# Max accepted upload size. The device caps clips at MAX_DURATION_S (~9.6 MB),
+# so 25 MB is comfortable headroom while still bounding a hostile/buggy client
+# that POSTs a multi-GB body to OOM the single worker (SEC-2). Tunable via env.
+MAX_UPLOAD_BYTES = int(os.getenv("MAX_UPLOAD_BYTES", str(25 * 1024 * 1024)))
+# Chunk size for streaming the body to disk (1 MiB).
+_UPLOAD_CHUNK = 1024 * 1024
+
 # Persistent job store (SQLite). Defaults to a file alongside the uploads dir.
 # Job rows survive a backend restart -- the in-memory dict used through v0.1.x
 # did not. See jobs.py for the single-worker scope note.
@@ -86,8 +93,15 @@ async def upload_audio(
     background_tasks: BackgroundTasks,
     audio: UploadFile = File(...),
     x_device_token: Optional[str] = Header(None),
+    content_length: Optional[int] = Header(None),
 ):
     _check_auth(x_device_token)
+    # Cheap early reject: if the client declares an oversize body, 413 before we
+    # read a single byte. Content-Length is client-supplied (may be absent or
+    # lie), so this is only an optimization -- the streaming guard below is the
+    # real enforcement.
+    if content_length is not None and content_length > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail="Upload too large")
     # audio.filename can be None for a multipart part without a filename;
     # coerce so a malformed upload returns a clean 400 rather than a 500.
     if not (audio.filename or "").endswith(".wav"):
@@ -104,9 +118,25 @@ async def upload_audio(
     # writing, so any future change to the naming scheme can't silently regress.
     if not save_path.resolve().is_relative_to(UPLOAD_DIR.resolve()):
         raise HTTPException(status_code=400, detail="Invalid upload path")
-    contents  = await audio.read()
-    save_path.write_bytes(contents)
-    log.info(f"[{job_id}] Received {len(contents)/1024:.1f}KB audio")
+    # Stream the body to disk in bounded chunks rather than buffering the whole
+    # upload in RAM (SEC-2). We count bytes as we go and abort with 413 the
+    # instant the cap is exceeded, deleting the partial file so a rejected
+    # upload leaves nothing behind.
+    written = 0
+    try:
+        with save_path.open("wb") as dst:
+            while True:
+                chunk = await audio.read(_UPLOAD_CHUNK)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(status_code=413, detail="Upload too large")
+                dst.write(chunk)
+    except HTTPException:
+        save_path.unlink(missing_ok=True)
+        raise
+    log.info(f"[{job_id}] Received {written/1024:.1f}KB audio")
     _store.create(job_id, timestamp)
     background_tasks.add_task(_process_job, job_id, save_path)
     return JSONResponse({"job_id": job_id, "status": "queued"}, status_code=202)

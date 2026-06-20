@@ -257,3 +257,45 @@ def test_upload_path_traversal_filename_stays_in_upload_dir(monkeypatch):
     assert saved.resolve().parent == upload_dir
     # ...and the traversal target was never created.
     assert not (upload_dir / ".." / ".." / ".." / ".." / ".." / ".." / "tmp" / "st_pwned.wav").exists()
+
+
+def test_upload_oversize_body_returns_413(monkeypatch):
+    """SEC-2: a body over MAX_UPLOAD_BYTES is rejected with 413, no file left."""
+    # Shrink the cap to 1 KiB so we don't have to ship 25 MB through the client.
+    # fresh_client reloads main, which reads MAX_UPLOAD_BYTES at import time.
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", "1024")
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+
+    big = b"RIFF" + b"\x00" * 5000  # ~5 KB, well over the 1 KiB cap
+    resp = client.post(
+        "/upload",
+        files={"audio": ("thought.wav", big, "audio/wav")},
+        headers={"X-Device-Token": "secret"},
+    )
+    assert resp.status_code == 413
+    # Nothing should be left behind in the uploads dir.
+    upload_dir = main_reloaded.UPLOAD_DIR
+    assert not any(upload_dir.glob("*.wav"))
+
+
+def test_upload_within_limit_still_accepted(monkeypatch):
+    """SEC-2 sanity: a body under the cap streams to disk and is accepted."""
+    monkeypatch.setenv("MAX_UPLOAD_BYTES", str(1024 * 1024))
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+
+    async def _noop(job_id, audio_path):
+        pass
+
+    monkeypatch.setattr(main_reloaded, "_process_job", _noop)
+
+    resp = client.post(
+        "/upload",
+        files={"audio": ("thought.wav", b"RIFF" + b"\x00" * 2048, "audio/wav")},
+        headers={"X-Device-Token": "secret"},
+    )
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+    saved = main_reloaded.UPLOAD_DIR / f"{job_id}.wav"
+    assert saved.exists()
+    # The full body (RIFF header + 2048 zero bytes) made it to disk intact.
+    assert saved.stat().st_size == 4 + 2048
