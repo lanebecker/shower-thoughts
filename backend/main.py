@@ -10,6 +10,7 @@ Endpoints:
 """
 
 import os
+import hmac
 import json
 import uuid
 import logging
@@ -79,7 +80,10 @@ def _check_auth(x_device_token: Optional[str]):
             detail="Server has no DEVICE_TOKEN configured. Set DEVICE_TOKEN "
                    "(or ALLOW_NO_DEVICE_TOKEN=1 for local testing).",
         )
-    if x_device_token != DEVICE_TOKEN:
+    # Constant-time comparison so the check can't be timing-probed byte by byte
+    # (SEC-4). x_device_token may be None; coerce to "" so compare_digest gets a
+    # str. Both operands are ASCII tokens, so compare_digest is safe here.
+    if not hmac.compare_digest(x_device_token or "", DEVICE_TOKEN):
         raise HTTPException(status_code=401, detail="Invalid device token")
 
 
