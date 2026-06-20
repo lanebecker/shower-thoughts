@@ -182,7 +182,7 @@ Deliberate decisions from the v0.1.1 and v0.2.1 hardening passes. Changing any o
 
 ## Testing
 
-The backend has a pytest suite in `backend/tests/` (`test_main.py`, `test_summarizer.py`, `test_registry.py`, `test_adapters.py`, `test_jobs.py`, `test_transcriber.py`, with `backend/conftest.py` supplying dummy API keys and isolating `UPLOAD_DIR`/`JOBS_DB` per test). Every external call (OpenAI/Anthropic, `subprocess`, `requests`, `smtplib`) is mocked, so it needs no real credentials or hardware. Run it with `pip install -r backend/requirements.txt -r requirements-dev.txt && cd backend && pytest`. CI runs it on every push (`.github/workflows/tests.yml`).
+The backend has a pytest suite in `backend/tests/` (`test_main.py`, `test_summarizer.py`, `test_registry.py`, `test_adapters.py`, `test_apple_notes_escaping.py`, `test_jobs.py`, `test_transcriber.py`, with `backend/conftest.py` supplying dummy API keys and isolating `UPLOAD_DIR`/`JOBS_DB` per test). Every external call (OpenAI/Anthropic, `subprocess`, `requests`, `smtplib`) is mocked, so it needs no real credentials or hardware. Run it with `pip install -r backend/requirements.txt -r requirements-dev.txt && cd backend && pytest`. CI runs it on every push (`.github/workflows/tests.yml`).
 
 **Test discipline (do not skip):** any change to backend behavior must add or update the relevant tests *in the same change*, and the full suite must pass before and after. A new endpoint, module, or adapter needs new tests — e.g. a new adapter gets a test mirroring the existing ones: mock its I/O, assert the payload shape and the missing-env error. Don't push code with red or missing tests.
 

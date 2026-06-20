@@ -68,7 +68,7 @@ The core loop: press a button, talk, get a note.
 
 ## v0.2.4 — Architecture & performance
 
-**Status:** planned. Internal refactors and performance work with no new user-facing feature — which is why they stay in the 0.2.x patch line rather than claiming the v0.3.0 minor bump. Extract `models.Note` out of `summarizer.py`, a pipeline service layer separate from the HTTP layer, lazy config/client initialization, de-duplicated adapter formatting, end-to-end streaming uploads, adapter caching, and SQLite connection reuse / WAL (ARCH-1…5, PERF-1, 4, 5). SEC-7's per-job delivery deadline lands here too, alongside the worker-model rework it depends on.
+**Status:** planned. Internal refactors and performance work with no new user-facing feature — which is why they stay in the 0.2.x patch line rather than claiming the v0.3.0 minor bump. Extract `models.Note` out of `summarizer.py`, a pipeline service layer separate from the HTTP layer, lazy config/client initialization, de-duplicated adapter formatting, backporting the ESP32 firmware's module structure to the Pi monolith, end-to-end streaming uploads, adapter caching, and SQLite connection reuse / WAL (ARCH-1…5, PERF-1, 4, 5). SEC-7's per-job delivery deadline lands here too, alongside the worker-model rework it depends on.
 
 > **Numbering note.** The ESP32 port below was started first and labeled v0.3.0, then paused for hardware. The architecture/perf work was inserted ahead of it as the 0.2.x patch line (internal refactors, no new feature), so the ESP32 port keeps its **v0.3.0** number — the next *user-facing* capability — rather than being renumbered.
 
