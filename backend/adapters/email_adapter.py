@@ -44,7 +44,9 @@ class EmailAdapter:
         msg["Subject"] = f"\U0001F4A1 {note.title}"
         msg.attach(MIMEText(body, "plain"))
 
-        with smtplib.SMTP(host, port) as server:
+        # timeout guards the worker thread against a hung/half-open SMTP socket
+        # (SEC-3) -- without it a stuck connection blocks the job forever.
+        with smtplib.SMTP(host, port, timeout=15) as server:
             server.starttls()
             server.login(user, password)
             server.sendmail(from_addr, [to_addr], msg.as_string())

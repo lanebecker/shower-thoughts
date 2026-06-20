@@ -82,6 +82,8 @@ def _send_webhook(filename: str, content: str):
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "text/markdown"},
         data=content.encode("utf-8"),
         verify=False,
+        # timeout guards the worker thread against a hung webhook socket (SEC-3).
+        timeout=15,
     )
     resp.raise_for_status()
     log.info(f"Obsidian webhook: note created at {path}")

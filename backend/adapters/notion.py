@@ -36,6 +36,8 @@ class NotionAdapter:
             "children": [{"object": "block", "type": "paragraph",
                           "paragraph": {"rich_text": [{"text": {"content": note.full_text}}]}}],
         }
-        resp = requests.post("https://api.notion.com/v1/pages", headers=headers, json=page)
+        # timeout guards the single worker thread against a hung Notion socket
+        # (SEC-3); a stuck delivery flips the job to error instead of blocking forever.
+        resp = requests.post("https://api.notion.com/v1/pages", headers=headers, json=page, timeout=15)
         resp.raise_for_status()
         log.info(f"Notion page created: '{note.title}'")

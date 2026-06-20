@@ -110,6 +110,8 @@ def test_obsidian_webhook_puts_to_local_rest_api(monkeypatch):
     url, kwargs = calls[0]
     assert "127.0.0.1:27123" in url
     assert kwargs.get("verify") is False
+    # SEC-3: the webhook PUT must carry an explicit timeout.
+    assert kwargs.get("timeout") == 15
 
 
 # --------------------------------------------------------------------------- #
@@ -133,6 +135,8 @@ def test_notion_send_posts_page(monkeypatch):
     assert len(calls) == 1
     url, kwargs = calls[0]
     assert url == "https://api.notion.com/v1/pages"
+    # SEC-3: the Notion POST must carry an explicit timeout.
+    assert kwargs.get("timeout") == 15
     headers = kwargs["headers"]
     assert headers["Authorization"] == "Bearer secret-key"
     props = kwargs["json"]["properties"]
@@ -157,9 +161,10 @@ def test_notion_missing_env_raises(monkeypatch):
 class _FakeSMTP:
     instances = []
 
-    def __init__(self, host, port):
+    def __init__(self, host, port, timeout=None):
         self.host = host
         self.port = port
+        self.timeout = timeout
         self.sent = []
         _FakeSMTP.instances.append(self)
 
@@ -192,6 +197,8 @@ def test_email_send_calls_sendmail(monkeypatch):
 
     assert len(_FakeSMTP.instances) == 1
     smtp = _FakeSMTP.instances[0]
+    # SEC-3: the SMTP connection must be opened with an explicit timeout.
+    assert smtp.timeout == 15
     assert len(smtp.sent) == 1
     from_addr, to_addrs, msg = smtp.sent[0]
     assert to_addrs == ["dest@example.com"]
