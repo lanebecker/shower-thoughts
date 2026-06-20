@@ -26,3 +26,6 @@ config.txt
 # Editor
 .vscode/
 .idea/
+
+# Local review artifacts — kept in the project folder, never committed
+CODE_REVIEW.md
