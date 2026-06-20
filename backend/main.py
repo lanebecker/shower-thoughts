@@ -94,7 +94,16 @@ async def upload_audio(
         raise HTTPException(status_code=400, detail="Only WAV files accepted")
     job_id    = str(uuid.uuid4())[:8]
     timestamp = datetime.now().isoformat()
-    save_path = UPLOAD_DIR / f"{job_id}_{audio.filename}"
+    # Storage name is generated entirely server-side. audio.filename is
+    # attacker-controlled and must never participate in the path -- a crafted
+    # name like "_../../../home/pi/.ssh/authorized_keys.wav" would otherwise
+    # escape UPLOAD_DIR (SEC-1, path traversal). job_id is a server-side uuid4
+    # slice, so the name is a fixed "<8 hex>.wav" with no traversal surface.
+    save_path = UPLOAD_DIR / f"{job_id}.wav"
+    # Defense in depth: assert the resolved path stays inside UPLOAD_DIR before
+    # writing, so any future change to the naming scheme can't silently regress.
+    if not save_path.resolve().is_relative_to(UPLOAD_DIR.resolve()):
+        raise HTTPException(status_code=400, detail="Invalid upload path")
     contents  = await audio.read()
     save_path.write_bytes(contents)
     log.info(f"[{job_id}] Received {len(contents)/1024:.1f}KB audio")

@@ -222,3 +222,38 @@ def test_upload_malformed_filename_is_client_error_not_500(monkeypatch):
     )
     assert resp.status_code in (400, 422)
     assert resp.status_code < 500
+
+
+def test_upload_path_traversal_filename_stays_in_upload_dir(monkeypatch):
+    """SEC-1: a `../` traversal filename must not escape UPLOAD_DIR.
+
+    The storage name is generated server-side from job_id, so the attacker's
+    filename is ignored entirely. We assert (a) the upload still succeeds, (b)
+    the only file written lives inside UPLOAD_DIR and is named "<job_id>.wav",
+    and (c) nothing landed at the traversal target outside the dir.
+    """
+    main_reloaded, client = fresh_client(monkeypatch, device_token="secret")
+    # Stub the background pipeline to a no-op. The real _process_job unlinks the
+    # WAV in its finally block, and TestClient runs background tasks before
+    # returning -- so without this the file would be gone before we inspect it.
+    async def _noop(job_id, audio_path):
+        pass
+
+    monkeypatch.setattr(main_reloaded, "_process_job", _noop)
+
+    upload_dir = main_reloaded.UPLOAD_DIR.resolve()
+    evil_name = "_../../../../../../tmp/st_pwned.wav"
+    resp = client.post(
+        "/upload",
+        files={"audio": (evil_name, b"RIFFfake", "audio/wav")},
+        headers={"X-Device-Token": "secret"},
+    )
+    assert resp.status_code == 202
+    job_id = resp.json()["job_id"]
+
+    # The saved file is exactly "<job_id>.wav" inside UPLOAD_DIR...
+    saved = upload_dir / f"{job_id}.wav"
+    assert saved.exists()
+    assert saved.resolve().parent == upload_dir
+    # ...and the traversal target was never created.
+    assert not (upload_dir / ".." / ".." / ".." / ".." / ".." / ".." / "tmp" / "st_pwned.wav").exists()
