@@ -7,9 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-06-20
+
+The **security & input hardening** milestone: a cold-review pass over the v0.2.0
+backend closing six security findings (SEC-1…6) on the `/upload` path, auth, the
+outbound adapters, and logging — plus the follow-up fixes a fresh-eyes review of
+those changes surfaced. No user-facing behaviour changes for a well-behaved device;
+this is defense against malformed, oversized, hostile, or hung inputs.
+
+### Security
+
+- **SEC-1 — Path traversal on upload (high).** The upload's on-disk name is now generated entirely server-side (`<job_id>.wav`); the attacker-controlled multipart `filename` never participates in the path. A `resolve()`/`is_relative_to()` guard rejects anything that would escape `UPLOAD_DIR`. Previously a crafted `filename` could write arbitrary bytes anywhere the backend process could.
+- **SEC-2 — Unbounded upload read / OOM (medium).** The request body is now streamed to disk in 1 MiB chunks and capped at `MAX_UPLOAD_BYTES` (default 25 MB), rejecting oversize uploads with **413** instead of buffering the whole body in RAM and risking an OOM of the single worker.
+- **SEC-3 — Missing adapter timeouts (medium).** The Notion, Obsidian-webhook, and SMTP outbound calls now set `timeout=15`, so a hung endpoint flips the job to `error` instead of starving the worker-thread pool. (A *total* per-job delivery deadline is tracked separately as SEC-7 / #28 for v0.2.4.)
+- **SEC-4 — Non-constant-time token check (low).** The device-token comparison uses `hmac.compare_digest` on the UTF-8 bytes, removing the timing side-channel.
+- **SEC-5 — Unverified SMTP STARTTLS (low).** The email adapter passes a default `ssl.create_default_context()` to `starttls()`, so the upgraded connection validates the SMTP host's certificate and hostname.
+- **SEC-6 — Transcript content logged (low).** Transcript text is no longer logged by default — only its length. A new `LOG_TRANSCRIPTS=1` flag restores a short preview for debugging.
+
+### Fixed
+
+- **Non-ASCII device token returned a 500.** A follow-up review found SEC-4's `compare_digest` raises `TypeError` on a non-ASCII `str`, and inbound headers are latin-1 decoded — so a raw high byte in `X-Device-Token` turned a clean 401 into a 500. Now both sides are compared as bytes.
+- **Partial upload left orphaned files.** The streaming write now cleans up the partial `.wav` on *any* mid-stream failure (disk error, client disconnect), not just the 413 path.
+
 ### Changed
 
-- **Documentation reframed for two first-class device platforms.** The ESP32-S3 is now presented as the project's **recommended direction** (its deep-sleep battery win), with the **Raspberry Pi as the proven reference build**, across the README, hardware guide, architecture, setup guide, roadmap, and `CLAUDE.md`. The hardware guide's "ESP32 Alternative" section became "ESP32-S3 build (recommended for battery life)." This is a **framing change only** — no version bump, no priority swap, and the Pi is *not* demoted. ESP32 battery/standby figures are labelled *by spec, not yet measured*; the formal primary/secondary swap is deferred until v0.3.0 passes on-device bench bring-up.
+- **Backend version bumped to 0.2.1.** New backend env vars: `MAX_UPLOAD_BYTES` (upload size cap) and `LOG_TRANSCRIPTS` (opt-in transcript preview), documented in `backend/.env.example`, `CLAUDE.md`, and `docs/architecture.md`.
+- `job_id` widened from 32 → 48 bits (`uuid4().hex[:12]`) to shrink the collision/overwrite surface now that the upload filename is derived entirely from it.
+- The email adapter's SSL context is built once at import instead of per send.
+- Duplicated test pipeline-stub helpers consolidated; backend suite now 56 tests (device 14) — 70 total, all external I/O mocked.
+- **Documentation reframed for two first-class device platforms.** The ESP32-S3 is presented as the project's **recommended direction** (its deep-sleep battery win), with the **Raspberry Pi as the proven reference build**, across the README, hardware guide, architecture, setup guide, roadmap, and `CLAUDE.md`. This is a **framing change only** — no priority swap, and the Pi is *not* demoted. ESP32 battery/standby figures are labelled *by spec, not yet measured*; the formal primary/secondary swap is deferred until the ESP32 port (v0.3.0) passes on-device bench bring-up.
 - Corrected the ESP32 host-test count to **43** in `docs/esp32-port-plan.md` (one stale reference said 34).
 
 ## [0.2.0] - 2026-06-16
@@ -92,7 +118,8 @@ default notes path works, and the docs match the code.
   - **Craft adapter** — craftdocs:// URL scheme via AppleScript, or Shortcuts webhook via Shortery (macOS / iOS)
 - **Hardware reference design** — Raspberry Pi Zero 2W + SPH0645 I2S microphone + LiPo power + IP65 Polycase enclosure; full BOM ~$55
 
-[Unreleased]: https://github.com/lanebecker/shower-thoughts/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/lanebecker/shower-thoughts/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/lanebecker/shower-thoughts/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/lanebecker/shower-thoughts/compare/v0.1.1...v0.2.0
 [0.1.1]: https://github.com/lanebecker/shower-thoughts/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/lanebecker/shower-thoughts/releases/tag/v0.1.0

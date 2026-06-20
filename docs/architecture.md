@@ -68,6 +68,8 @@ Systemd unit that starts `recorder.py` after `network-online.target`. Configured
 
 FastAPI application with four routes: `POST /upload` (accepts a WAV file, saves it, persists a `queued` job, returns a `job_id`, and launches a background processing coroutine), `GET /job/{job_id}` (returns current job status and, when complete, the resulting note), `GET /jobs` (lists recent jobs/notes, newest first), and `GET /health` (liveness check). Job state is persisted to SQLite via `backend/jobs.py`, so it survives a backend restart. Job *processing* still runs as an in-process BackgroundTask, so the backend runs as a single uvicorn worker.
 
+The upload path is hardened (v0.2.1): the stored filename is generated server-side as `<job_id>.wav` so the client-supplied name can't traverse out of `UPLOAD_DIR`; the body is streamed to disk in chunks and rejected with **413** above `MAX_UPLOAD_BYTES` (default 25 MB) rather than buffered in RAM; the `X-Device-Token` check is a constant-time byte comparison; and transcript content is kept out of the logs unless `LOG_TRANSCRIPTS=1`. The outbound notes adapters set request timeouts so a hung destination can't stall the worker.
+
 ### `backend/jobs.py`
 
 A minimal persistent job store backed by SQLite (stdlib `sqlite3`). Replaces the in-memory dict used through v0.1.x, which lost in-flight jobs on restart. Exposes `create`, `update`, `get`, and `list_recent`; each call uses its own short-lived connection, so it's safe to call from background threads. Tags are stored as JSON and returned as a list.
@@ -147,6 +149,8 @@ Craft has no public REST API, so this adapter bridges to it via native mechanism
 | `DEVICE_TOKEN` | ❌ | — | Required by default; rejects uploads with 503 if unset (see `ALLOW_NO_DEVICE_TOKEN`) |
 | `ALLOW_NO_DEVICE_TOKEN` | ❌ | — | Set `1` to allow uploads with no token (local testing only) |
 | `UPLOAD_DIR` | ❌ | `/tmp/shower_uploads` | Directory for uploaded WAVs (and the default job DB) |
+| `MAX_UPLOAD_BYTES` | ❌ | `26214400` (25 MB) | Max upload size; larger bodies rejected with 413 (body is streamed, not buffered) |
+| `LOG_TRANSCRIPTS` | ❌ | — | Set `1` to log a short transcript preview; default logs only the transcript length |
 | `AI_PROVIDER` | ❌ | `anthropic` | `anthropic` or `openai` |
 | `ANTHROPIC_API_KEY` | ✅ if provider=anthropic | — | Anthropic API key |
 | `OPENAI_API_KEY` | ✅ (always — Whisper) | — | OpenAI API key; required for Whisper regardless of `AI_PROVIDER` |

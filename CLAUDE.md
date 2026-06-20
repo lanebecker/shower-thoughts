@@ -75,6 +75,8 @@ All runtime config lives in `.env` files — never committed.
 |---------------------|---------------|---------------------------------------------------|
 | `DEVICE_TOKEN`      | —             | **Required by default** — uploads return 503 if unset (see `ALLOW_NO_DEVICE_TOKEN`) |
 | `ALLOW_NO_DEVICE_TOKEN` | —         | Set `1` to permit unauthenticated uploads (local testing only)     |
+| `MAX_UPLOAD_BYTES`  | `26214400` (25 MB) | Max upload size; larger bodies are rejected with 413 (the body is streamed to disk, never fully buffered) |
+| `LOG_TRANSCRIPTS`   | —             | Set `1` to log a short transcript preview; default logs only transcript length (privacy) |
 | `AI_PROVIDER`       | `anthropic`   | `anthropic` or `openai`                           |
 | `ANTHROPIC_API_KEY` | —             | Required if `AI_PROVIDER=anthropic`               |
 | `OPENAI_API_KEY`    | —             | Required regardless — Whisper transcription always uses it          |
@@ -155,13 +157,19 @@ Adapter-specific vars are documented in `backend/.env.example` and in each adapt
 
 ## Invariants — do not regress
 
-Deliberate decisions from the v0.1.1 hardening pass. Changing any of them reintroduces a real bug that was already fixed, so confirm with the maintainer before "fixing" one.
+Deliberate decisions from the v0.1.1 and v0.2.1 hardening passes. Changing any of them reintroduces a real bug that was already fixed, so confirm with the maintainer before "fixing" one.
 
 - **Apple Notes is AppleScript-only and macOS-only.** There is no email-to-Apple-Notes address (Apple offers no inbound notes ingestion). Do **not** re-add an `email`/SMTP strategy to `apple_notes`. The default `apple_notes` adapter requires the backend to run on a Mac signed into iCloud. For email delivery, use the separate `email` adapter.
 - **Capture at 48 kHz, then downsample to 16 kHz.** The `googlevoicehat-soundcard` overlay (for the SPH0645) is fixed at 48 kHz. `recorder.py` records at 48 kHz and downsamples via `audioop.ratecv`. Do **not** open the PyAudio stream at 16 kHz — it fights the card.
 - **Boot config path is `/boot/firmware/config.txt`** on Raspberry Pi OS Bookworm. `install.sh` writes there and falls back to `/boot/config.txt` only on older images. Don't hard-code the old path.
 - **The I2S overlay is `googlevoicehat-soundcard`** (with `dtparam=i2s=on` and `dtoverlay=i2s-mmap`). There is no stock `i2s-mems` overlay — don't reintroduce it.
 - **`DEVICE_TOKEN` is required by default.** An unset token rejects uploads with 503 unless `ALLOW_NO_DEVICE_TOKEN=1`. Don't revert to open-by-default.
+- **Upload filenames are generated server-side (SEC-1).** The stored name is `<job_id>.wav`; the attacker-controlled multipart `filename` must never participate in the path. Keep the `resolve()`/`is_relative_to(UPLOAD_DIR)` containment guard — don't interpolate `audio.filename` back into `save_path`.
+- **Uploads are size-capped and streamed to disk (SEC-2).** The body is read in chunks and rejected with 413 above `MAX_UPLOAD_BYTES`; don't go back to a single `await audio.read()` (whole-body buffer → OOM of the single worker). The partial file is unlinked on *any* failure before the job is enqueued — keep that cleanup broad (not just the 413 path).
+- **Outbound adapter calls set `timeout=15` (SEC-3).** Notion `post`, Obsidian webhook `put`, and `smtplib.SMTP` must pass a timeout so a hung peer can't starve the worker-thread pool. (A *total* per-job delivery deadline is deferred to SEC-7 / #28 in v0.2.4 — the naive `wait_for` wrapper is false safety because the thread can't be cancelled.)
+- **Device-token comparison is constant-time over bytes (SEC-4).** Use `hmac.compare_digest((token or "").encode("utf-8"), DEVICE_TOKEN.encode("utf-8"))`. Comparing as `str` raises `TypeError` on non-ASCII (header values are latin-1 decoded), which would turn a 401 into a 500.
+- **SMTP STARTTLS verifies the certificate (SEC-5).** Pass `ssl.create_default_context()` to `starttls()` (built once at module level); never call `starttls()` bare.
+- **Transcript content is not logged by default (SEC-6).** The pipeline logs only the transcript *length*; a short preview is gated behind `LOG_TRANSCRIPTS=1`. Don't log transcript text at the default level.
 - **Run a single uvicorn worker.** As of v0.2.0 job *state* lives in SQLite (`jobs.py`), so it survives a restart — but job *processing* is an in-process FastAPI BackgroundTask that doesn't coordinate across processes. Multi-worker is a deliberate non-goal; don't add `--workers N` expecting it to work.
 - **The device buffers failed uploads and retries them** (background thread, 60s interval, newest-50 cap, slow-blue LED cue). Do **not** delete a WAV on upload failure — only on success.
 - **The low-battery monitor is opt-in and must never crash recording.** It's disabled unless `BATTERY_MONITOR` is set; `smbus2` is imported lazily and every I2C error is swallowed (read returns `None`), so a missing or flaky ADS1115 can't take down the firmware. Don't move the import to module top or let it raise.
@@ -209,8 +217,12 @@ The `main` branch is the only branch; no PRs needed for solo work. Note the API 
 
 See [`docs/roadmap.md`](docs/roadmap.md) for the full versioned plan.
 
-**v0.2.0 — Backend durability** ✅ complete (2026-06-16): persistent SQLite job store, `GET /jobs`, Whisper rate-limit/timeout handling, and the optional low-battery LED (I2C ADS1115) all shipped. Next milestones: ESP32-S3 port (v0.3.0), local transcription (v0.4.0).
+**v0.2.0 — Backend durability** ✅ complete (2026-06-16): persistent SQLite job store, `GET /jobs`, Whisper rate-limit/timeout handling, and the optional low-battery LED (I2C ADS1115).
 
-**v0.3.0 — ESP32-S3 port** 🚧 in progress: hardware-independent logic is host-tested (43 tests in `device-esp32/`); `recorder.py`/`main.py` are flash-ready skeletons; on-device bench bring-up (I2S, Wi-Fi, upload, deep-sleep/wake) is pending.
+**v0.2.1 — Security & input hardening** ✅ complete (2026-06-20): closed SEC-1…6 (upload path traversal, upload size cap + streaming, adapter timeouts, constant-time token compare, SMTP cert verification, transcript logging) plus the cold-review follow-ups. See the Invariants section above.
+
+The 0.2.x hardening line continues with **v0.2.2 — Reliability & correctness**, **v0.2.3 — Device firmware fixes**, and **v0.2.4 — Architecture & performance** (the ARCH/PERF refactors: extract `models.Note`, a pipeline service layer, lazy clients, streaming/caching — and SEC-7's per-job delivery deadline). These are internal hardening/refactor milestones with no new user-facing feature, so they deliberately stay in the patch line rather than claiming a minor bump.
+
+**v0.3.0 — ESP32-S3 port** 🚧 in progress: hardware-independent logic is host-tested (43 tests in `device-esp32/`); `recorder.py`/`main.py` are flash-ready skeletons; on-device bench bring-up (I2S, Wi-Fi, upload, deep-sleep/wake) is pending. It keeps the **v0.3.0** number — a new device platform is the next *user-facing* capability — and ships after the 0.2.x line. The architecture/perf work was inserted ahead of it (while ESP32 waited on hardware) as the 0.2.x patch line, so the ESP32 port was **not** renumbered. Local transcription follows as v0.4.0.
 
 **Platform-priority direction (decided 2026-06-17):** the ESP32-S3 is intended to become the **recommended primary platform** once v0.3.0 is bench-verified, on the strength of its deep-sleep battery win. Until then, **the Pi stays the proven reference build and both targets are documented as first-class** — the formal primary/secondary swap (demoting the Pi, version-bumping, rewriting quick-starts around the ESP32) is deliberately deferred so we don't demote a working platform for an unverified one. When writing docs, keep the ESP32's battery/standby numbers framed as *by spec, not yet measured*. Don't mark v0.3.0 shipped or call the Pi "legacy" until Lane confirms a green bench bring-up.

@@ -33,7 +33,7 @@ load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
-app = FastAPI(title="ShowerThoughts", version="0.2.0")
+app = FastAPI(title="ShowerThoughts", version="0.2.1")
 
 UPLOAD_DIR   = Path(os.getenv("UPLOAD_DIR", "/tmp/shower_uploads"))
 DEVICE_TOKEN = os.getenv("DEVICE_TOKEN", "")

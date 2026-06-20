@@ -38,6 +38,42 @@ The core loop: press a button, talk, get a note.
 
 ---
 
+## ✅ v0.2.1 — Security & input hardening (2026-06-20)
+
+**Why:** A cold review of the v0.2.0 backend surfaced a cluster of input-handling, auth, and logging weaknesses worth closing before building further on top. No behaviour change for a well-behaved device — this is defense against malformed, oversized, hostile, or hung inputs.
+
+- ✅ **SEC-1** — Upload path traversal: the stored filename is generated server-side (`<job_id>.wav`), never the attacker-supplied multipart name
+- ✅ **SEC-2** — Upload DoS/OOM: body streamed to disk and capped at `MAX_UPLOAD_BYTES` (rejected with 413 above the cap) instead of buffered in RAM
+- ✅ **SEC-3** — Adapter timeouts: Notion / Obsidian-webhook / SMTP calls bounded with `timeout=15`
+- ✅ **SEC-4** — Constant-time device-token comparison (`hmac.compare_digest` over UTF-8 bytes)
+- ✅ **SEC-5** — SMTP STARTTLS validates the server certificate
+- ✅ **SEC-6** — Transcript content no longer logged by default (`LOG_TRANSCRIPTS=1` to opt in)
+- ✅ Cold-review follow-ups: non-ASCII token now returns 401 (not 500), partial-upload cleanup on any error, `job_id` widened to 48 bits
+
+> A *total* per-job delivery deadline (SEC-7, #28) was deliberately deferred to v0.2.4, where the worker-model rework makes it doable without false safety (a naive `wait_for` can't cancel the blocking thread).
+
+---
+
+## v0.2.2 — Reliability & correctness
+
+**Status:** planned. Backend correctness bugs from the review — brittle LLM-response parsing, wrong `recorded_at` timestamps, the Apple Notes newline crash, a `WHISPER_MAX_RETRIES=0` edge case, malformed/colliding Obsidian-email output, hardcoded transcription language, and an assumed Anthropic response shape (BUG-1, 2, 5, 7, 8, 9, 10).
+
+---
+
+## v0.2.3 — Device firmware fixes
+
+**Status:** planned. Pi and ESP32 firmware fixes — an unsynchronized LED thread, no backoff on the ESP32 idle retry loop, a button press blocking the ESP32 record loop, a missing `urequests` timeout, and the Pi's double-copy of the recording on stop (BUG-3, 4, 6 + PERF-2, 3).
+
+---
+
+## v0.2.4 — Architecture & performance
+
+**Status:** planned. Internal refactors and performance work with no new user-facing feature — which is why they stay in the 0.2.x patch line rather than claiming the v0.3.0 minor bump. Extract `models.Note` out of `summarizer.py`, a pipeline service layer separate from the HTTP layer, lazy config/client initialization, de-duplicated adapter formatting, end-to-end streaming uploads, adapter caching, and SQLite connection reuse / WAL (ARCH-1…5, PERF-1, 4, 5). SEC-7's per-job delivery deadline lands here too, alongside the worker-model rework it depends on.
+
+> **Numbering note.** The ESP32 port below was started first and labeled v0.3.0, then paused for hardware. The architecture/perf work was inserted ahead of it as the 0.2.x patch line (internal refactors, no new feature), so the ESP32 port keeps its **v0.3.0** number — the next *user-facing* capability — rather than being renumbered.
+
+---
+
 ## v0.3.0 — ESP32 firmware port
 
 **Status (2026-06-17):** in progress. All hardware-independent logic for Phases 1
